@@ -1158,6 +1158,7 @@ async function runCommand(cmd, my) {
 
 function changeLanguage() {
   settings.lang = LANG_ORDER[(LANG_ORDER.indexOf(settings.lang) + 1) % LANG_ORDER.length];
+  settings.langChosen = true;
   setLang(settings.lang);
   save();
   preloadPrompts();
@@ -1225,6 +1226,7 @@ function bindSettings() {
     const b = e.target.closest('[data-v]');
     if (!b || b.dataset.v === settings.lang) return;
     settings.lang = b.dataset.v;
+    settings.langChosen = true;
     setLang(settings.lang);
     preloadPrompts();
     changed(t('languageName'));

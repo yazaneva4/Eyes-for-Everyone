@@ -317,7 +317,3 @@ export function t(path, vars) {
   return v;
 }
 
-export function detectLang() {
-  const nav = (navigator.languages || [navigator.language || 'en']).map((l) => l.slice(0, 2).toLowerCase());
-  return nav.find((l) => STRINGS[l]) || 'en';
-}

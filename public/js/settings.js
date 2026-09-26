@@ -1,5 +1,4 @@
 // Remembers language, voice speed, volume, text size and theme on this phone only.
-import { detectLang } from './i18n.js';
 
 const KEY = 'eyes.settings.v1';
 export const RATES = [0.6, 0.8, 1, 1.25, 1.5, 1.75, 2];
@@ -7,7 +6,7 @@ export const SIZES = [18, 20, 24, 28, 32, 40, 48, 56, 64];
 export const THEMES = ['yellow', 'white', 'light'];
 
 const defaults = () => ({
-  lang: detectLang(),
+  lang: 'en', // English by default; people switch in settings or by voice
   rate: 1,
   volume: 1,
   textPt: 24,
@@ -26,6 +25,15 @@ function load() {
 
 export const settings = load();
 // Text became smaller by default; move people from the old 40pt default once.
+// English became the default. Anyone whose language was only guessed from the phone goes back to
+// English once; a language someone picked themselves (langChosen) is kept.
+if (!settings.langV2) {
+  if (!settings.langChosen) settings.lang = 'en';
+  settings.langV2 = true;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(settings));
+  } catch {}
+}
 if (!settings.volumeV2) {
   if (settings.volume === 0.8) settings.volume = 1;
   settings.volumeV2 = true;
