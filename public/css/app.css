@@ -310,6 +310,7 @@ body[data-photo='on'] #photo {
 }
 body[data-state='thinking'] .edge {
   opacity: 1;
+  background: conic-gradient(from var(--angle), #f4f6f9, #9aa1ab, #ffffff, #7d848e, #f4f6f9);
 }
 body.recording .edge {
   background: var(--fg);
@@ -382,7 +383,7 @@ body.recording .orb {
   animation: pulse 1s ease-in-out infinite;
 }
 body[data-state='thinking'] .orb {
-  background: conic-gradient(from var(--angle), var(--fg), var(--g2), var(--g3), var(--g4), var(--fg));
+  background: conic-gradient(from var(--angle), #ffffff, #9aa1ab, #f4f6f9, #6f7680, #ffffff);
   animation: turn 1.2s linear infinite;
 }
 body[data-state='answer'] .orb {
@@ -647,15 +648,15 @@ body[data-facing='yes'] .compass .qibla-mark {
   aspect-ratio: 1;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 30% 24%, #fff 0 5%, rgb(255 255 255 / 0.85) 8%, transparent 22%),
-    radial-gradient(circle at 72% 82%, rgb(255 255 255 / 0.5), transparent 30%),
-    radial-gradient(circle at 46% 42%, #f1f3f6 0%, #c3c8cf 28%, #8a9099 52%, #4a4f57 76%, #17191d 100%);
+    radial-gradient(ellipse 34% 26% at 36% 26%, #fff 0%, rgb(255 255 255 / 0.9) 35%, transparent 100%),
+    radial-gradient(ellipse 40% 22% at 60% 80%, rgb(255 255 255 / 0.55), transparent 100%),
+    radial-gradient(circle at 42% 36%, #fbfcfd 0%, #e2e5ea 30%, #bfc4cb 55%, #8d939c 78%, #5d626a 100%);
   box-shadow:
-    inset -14px -20px 34px rgb(0 0 0 / 0.55),
-    inset 12px 14px 26px rgb(255 255 255 / 0.4),
-    0 0 0 1px rgb(255 255 255 / 0.18),
-    0 26px 60px -14px rgb(0 0 0 / 0.7),
-    0 0 70px -20px rgb(255 255 255 / 0.45);
+    inset -10px -16px 28px rgb(40 44 52 / 0.45),
+    inset 10px 12px 22px rgb(255 255 255 / 0.7),
+    0 0 0 1px rgb(255 255 255 / 0.35),
+    0 24px 50px -16px rgb(0 0 0 / 0.6),
+    0 0 60px -18px rgb(230 235 245 / 0.7);
   transform: scale(calc(0.94 + var(--level) * 0.3));
   transition:
     opacity 0.35s ease,
@@ -695,11 +696,21 @@ body[data-state='thinking'] .orb3d .sheen {
   animation-duration: 1.6s;
 }
 body[data-state='thinking'] .orb3d {
-  animation: orb-think 2.2s ease-in-out infinite;
+  animation: orb-think 2.4s ease-in-out infinite;
 }
 @keyframes orb-think {
-  50% {
-    transform: scale(1.05);
+  0%,
+  100% {
+    transform: scale(1);
+    border-radius: 50%;
+  }
+  33% {
+    transform: scale(1.04, 0.98);
+    border-radius: 48% 52% 50% 50% / 52% 48% 52% 48%;
+  }
+  66% {
+    transform: scale(0.98, 1.04);
+    border-radius: 52% 48% 49% 51% / 48% 52% 48% 52%;
   }
 }
 /* ---------- the message sheet ---------- */
