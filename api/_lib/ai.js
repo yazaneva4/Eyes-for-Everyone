@@ -240,7 +240,7 @@ async function elevenTranscribe(buf, mime, lang) {
   const form = new FormData();
   form.append('file', new Blob([buf], { type: mime }), `question.${EXT[mime] || 'webm'}`);
   form.append('model_id', process.env.ELEVENLABS_STT_MODEL || 'scribe_v2');
-  form.append('language_code', lang);
+  form.append('language_code', { en: 'eng', ar: 'ara', ml: 'mal' }[lang] || lang);
   form.append('tag_audio_events', 'false');
   const r = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
     method: 'POST',
@@ -270,6 +270,10 @@ async function geminiTranscribe(buf, mime, lang) {
   return /^\[?\s*no speech\s*\]?\.?$/i.test(out) ? '' : out;
 }
 
+// Does the text use the expected alphabet? (A Malayalam question should contain Malayalam letters.)
+const SCRIPT = { ar: /[\u0600-\u06FF]/, ml: /[\u0D00-\u0D7F]/ };
+const scriptOk = (text, lang) => !text || !SCRIPT[lang] || SCRIPT[lang].test(text);
+
 export async function transcribe({ audio, mime, lang }) {
   const buf = Buffer.from(audio, 'base64');
   const base = (mime || 'audio/webm').split(';')[0].trim();
@@ -277,15 +281,20 @@ export async function transcribe({ audio, mime, lang }) {
   const k = keys();
   const list = [k.elevenlabs && 'elevenlabs', k.openai && 'openai', k.gemini && 'gemini'].filter(Boolean);
   if (!list.length) throw Object.assign(new Error('No speech-to-text key configured'), { status: 503 });
+  const fns = { elevenlabs: elevenTranscribe, openai: openaiTranscribe, gemini: geminiTranscribe };
   let lastErr;
+  let fallback = null;
   for (const p of list) {
     try {
-      const fn = { elevenlabs: elevenTranscribe, openai: openaiTranscribe, gemini: geminiTranscribe }[p];
-      return await fn(buf, base, lang);
+      const text = await fns[p](buf, base, lang);
+      // Wrong alphabet usually means the language was misheard; keep it only as a last resort.
+      if (scriptOk(text, lang)) return text;
+      fallback ??= text;
     } catch (e) {
       lastErr = e;
     }
   }
+  if (fallback !== null) return fallback;
   throw lastErr;
 }
 
