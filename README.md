@@ -33,6 +33,7 @@ Eyes-for-Everyone/
 │   ├── index.html            ← the skeleton of the one big screen.
 │   ├── css/app.css           ← the paint: big letters, strong colours, shiny glass and glowing animations.
 │   ├── js/app.js             ← the brain that decides what happens after every tap.
+│   ├── js/glass.js           ← makes the glass as clear as possible but never too clear to read, and moves its shine.
 │   ├── js/camera.js          ← opens the camera, snaps the photo, and checks it is not too dark or blurry.
 │   ├── js/listen.js          ← records your question with the microphone.
 │   ├── js/voice.js           ← makes the phone talk.
@@ -131,6 +132,8 @@ It is built to feel like a modern camera app, not a remote control:
 - While it thinks, a rainbow edge turns around the screen and a colourful orb glows.
 - The answer rises in a frosted-glass sheet over the photo it describes.
 - Landscape puts the picture on one side and the words on the other.
+- **Adaptive Liquid Glass:** `glass.js` measures the picture behind every glass panel, several times a second over the live camera. It then picks the clearest glass (down to 42% opacity) that still keeps text at 7.5:1 contrast. Over dark scenes the glass is very clear, and over a bright window it frosts up.
+- The glass has a bright lens rim, a shine that follows your finger (and the phone's tilt on Android), a springy "gel" squish when you press it, and real light-bending refraction in Chrome.
 
 ## Low-vision design
 

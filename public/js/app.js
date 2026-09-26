@@ -8,6 +8,7 @@ import { speak, stopSpeaking, unlockVoice, enableServerVoice, splitSentences, pr
 import { startCamera, stopCamera, capture, toJpegBase64, checkQuality, cameraRunning } from './camera.js';
 import { startListening, useServerStt } from './listen.js';
 import { matchCommand } from './commands.js';
+import { initGlass } from './glass.js';
 
 const TIMING = { LONG: 700, SETTINGS: 3000, DOUBLE: 320, DEBOUNCE: 500, ASK_TIMEOUT: 35000 };
 
@@ -172,12 +173,14 @@ function bindGestures() {
     clearTimeout(longTimer);
     clearTimeout(settingsTimer);
     down = false;
+    el.body.classList.remove('pressing');
   };
   el.stage.addEventListener('pointerdown', (e) => {
     if (!e.isPrimary) return;
     sounds.unlock();
     down = true;
     longFired = false;
+    el.body.classList.add('pressing');
     longTimer = setTimeout(() => {
       longFired = true;
       lastAction = Date.now();
@@ -667,5 +670,6 @@ applyLook();
 el.body.classList.toggle('sr', settings.srMode);
 bindGestures();
 bindSettings();
+initGlass({ video: el.video, photo: el.photo, body: el.body });
 checkServer();
 showStart();

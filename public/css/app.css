@@ -8,12 +8,22 @@
   initial-value: 0deg;
 }
 
+/* A real spring (overshoots a little, then settles) where the browser supports linear(). */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --spring: linear(0, 0.013 0.6%, 0.05 1.2%, 0.2 2.5%, 0.46 4.3%, 0.94 7.6%, 1.1 9.6%, 1.16 11.4%, 1.15 13.4%, 1.1 15.6%, 1.01 19.8%, 0.98 22.6%, 0.97 25.6%, 0.99 32%, 1.005 39%, 1);
+  }
+}
+
 :root {
   --fg: #ffe14d; /* yellow on black ≈ 15:1 */
   --bg: #000;
-  --glass: rgba(12, 12, 14, 0.86);
-  --glass-edge: rgba(255, 255, 255, 0.22);
-  --glass-shine: rgba(255, 255, 255, 0.07);
+  --tint: 12 12 14; /* glass colour; how see-through it is (--ga) is set live by glass.js */
+  --glass: rgb(var(--tint) / 0.86);
+  --rim-hi: rgb(255 255 255 / 0.62);
+  --rim-lo: rgb(255 255 255 / 0.16);
+  --glass-shine: rgb(255 255 255 / 0.09);
+  --spring: cubic-bezier(0.2, 0.8, 0.2, 1);
   --shadow: rgba(0, 0, 0, 0.55);
   --veil: rgba(0, 0, 0, 0.2);
   --g2: #ff5fa2;
@@ -31,9 +41,11 @@
 :root[data-theme='light'] {
   --fg: #000000; /* ≈ 18:1 */
   --bg: #ffffff;
-  --glass: rgba(255, 255, 255, 0.9);
-  --glass-edge: rgba(0, 0, 0, 0.14);
-  --glass-shine: rgba(255, 255, 255, 0.6);
+  --tint: 255 255 255;
+  --glass: rgb(var(--tint) / 0.9);
+  --rim-hi: rgb(255 255 255 / 0.95);
+  --rim-lo: rgb(0 0 0 / 0.14);
+  --glass-shine: rgb(255 255 255 / 0.55);
   --shadow: rgba(0, 0, 0, 0.2);
   --veil: rgba(255, 255, 255, 0.12);
   --g2: #e0306f;
@@ -84,19 +96,33 @@ button {
   stroke-linejoin: round;
 }
 
-/* ---------- liquid glass ---------- */
+/* ---------- liquid glass ----------
+   Layers, back to front:
+   1. backdrop: blur + saturation (+ real refraction on Chromium, see .refract)
+   2. tint: as clear as glass.js says is safe for 7:1 text contrast (--ga)
+   3. ::before  moving specular shine that follows your finger / phone tilt
+   4. ::after   bright lens rim: light on the top-left edge, caustic on the bottom-right
+   5. inner shadows that give the glass thickness */
 
 .glass {
+  --ga: 0.86;
   position: relative;
   isolation: isolate;
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(32px) saturate(190%);
-  backdrop-filter: blur(32px) saturate(190%);
-  border: 1px solid var(--glass-edge);
+  background: rgb(var(--tint) / var(--ga));
+  -webkit-backdrop-filter: blur(22px) saturate(230%) brightness(1.06);
+  backdrop-filter: blur(22px) saturate(230%) brightness(1.06);
+  border: 0;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -20px 40px -30px rgba(255, 255, 255, 0.3),
-    0 30px 70px -20px var(--shadow);
+    inset 0 0 0 0.5px var(--rim-lo),
+    inset 0 1px 1px 0 var(--rim-hi),
+    inset 0 -26px 36px -30px rgb(255 255 255 / 0.4),
+    inset 0 20px 34px -30px rgb(255 255 255 / 0.25),
+    0 1px 2px rgb(0 0 0 / 0.22),
+    0 28px 70px -22px var(--shadow);
+  transition:
+    background-color 0.6s ease,
+    transform 0.55s var(--spring),
+    box-shadow 0.3s;
 }
 .glass::before {
   content: '';
@@ -106,19 +132,59 @@ button {
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(140% 80% at 10% -20%, var(--glass-shine), transparent 55%),
-    linear-gradient(165deg, var(--glass-shine), transparent 30%);
+    radial-gradient(90% 70% at var(--lx, 22%) var(--ly, 0%), var(--glass-shine), transparent 60%),
+    linear-gradient(160deg, var(--glass-shine) 0%, transparent 28%, transparent 72%, rgb(255 255 255 / 0.04) 100%);
+  transition: background-position 0.2s;
+}
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    var(--rim-hi) 0%,
+    rgb(255 255 255 / 0.12) 22%,
+    transparent 45%,
+    transparent 62%,
+    rgb(255 255 255 / 0.28) 88%,
+    var(--rim-hi) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+/* Chromium can bend the light behind the glass with an SVG filter (see index.html). */
+.refract .glass {
+  -webkit-backdrop-filter: url(#lg-refract) blur(18px) saturate(230%) brightness(1.06);
+  backdrop-filter: url(#lg-refract) blur(18px) saturate(230%) brightness(1.06);
+}
+/* Squishy "gel" press: glass gives a little under your finger, then springs back. */
+body.pressing .sheet,
+body.pressing .pill {
+  transform: scale(0.975, 0.955);
+}
+.big:active,
+.row:active {
+  transform: scale(0.95, 0.92) !important;
+  transition-duration: 0.12s !important;
 }
 @media (prefers-reduced-transparency: reduce) {
   .glass {
-    background: var(--bg);
+    --ga: 1 !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass {
-    background: var(--bg);
+    --ga: 1 !important;
   }
 }
 
@@ -283,6 +349,14 @@ body.recording .edge {
   transition:
     opacity 0.3s,
     transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pill {
+  interpolate-size: allow-keywords;
+  transition:
+    opacity 0.3s,
+    width 0.5s var(--spring),
+    transform 0.55s var(--spring),
+    background-color 0.6s ease;
 }
 body[data-state='start'] .pill {
   opacity: 0;
@@ -526,7 +600,8 @@ body:not(.recording) .voice .ring {
 
 .sheet {
   flex: none;
-  border-radius: 36px;
+  border-radius: 40px;
+  animation: sheet-in 0.7s var(--spring);
   padding: 14px clamp(20px, 5vw, 34px) clamp(22px, 4vmin, 32px);
   transition: box-shadow 0.3s;
 }
@@ -552,6 +627,12 @@ body:not(.recording) .voice .ring {
 #message > span {
   display: block;
   animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(40px) scale(0.96);
+    opacity: 0;
+  }
 }
 @keyframes rise {
   from {
@@ -613,27 +694,37 @@ body.recording .sheet {
   text-align: center;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.15s;
+  transition: transform 0.5s var(--spring);
 }
 .big:focus-visible,
 .row:focus-visible {
   outline: 6px solid var(--fg);
   outline-offset: 4px;
 }
-.big:active,
-.row:active {
-  transform: scale(0.97);
-}
+
 .primary,
 .done {
-  background: var(--fg);
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgb(255 255 255 / 0.35), transparent 55%),
+    var(--fg);
   color: var(--bg);
   border: 0;
-  box-shadow: 0 20px 50px -18px var(--fg);
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.7),
+    inset 0 -10px 20px -10px rgb(0 0 0 / 0.25),
+    0 20px 50px -18px var(--fg);
 }
 .primary::before,
 .done::before {
   display: none;
+}
+:root[data-theme='light'] .primary,
+:root[data-theme='light'] .done {
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgb(255 255 255 / 0.22), transparent 55%),
+    var(--fg);
 }
 
 #welcome-sr {
@@ -764,14 +855,17 @@ body.sr[data-state='thinking'] #sr-main {
   min-height: 84px;
   padding: 8px 22px;
   border-radius: 26px;
-  border: 1px solid color-mix(in srgb, var(--fg) 22%, transparent);
-  background: color-mix(in srgb, var(--fg) 7%, transparent);
+  border: 0;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.28),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--fg) 25%, transparent);
   font-size: 32pt;
   line-height: 1.1;
   text-align: start;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.15s;
+  transition: transform 0.5s var(--spring);
 }
 .row .ic {
   opacity: 0.85;
