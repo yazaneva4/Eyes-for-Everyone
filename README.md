@@ -10,7 +10,7 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 | **Tap** (ANSWER) | Ask another question about the **same** photo. |
 | **Double-tap** | New photo. |
 | **Press and hold** | Repeat the last answer. |
-| **Hold 3 seconds** | Settings (language, speed, text size, theme, screen reader mode, tutorial). |
+| **Hold 3 seconds** | Settings (language, speed, text size, theme, screen reader mode). |
 | Say *repeat · faster · slower · louder · change language · bigger text* | Voice commands while listening (English, Arabic, Malayalam). |
 
 Taps while THINKING are ignored, and extra taps within 500 ms are ignored so accidental double touches do nothing.
@@ -126,7 +126,7 @@ Replies and ratings are kept in that browser only. Photos are never stored.
 - There are three themes, all well above 7:1 contrast: yellow on black (default), white on black, and black on white. The "liquid glass" panels are at least 85% opaque, so the camera behind them can't lower the contrast.
 - The screen stays awake, and portrait and landscape both work.
 - Live regions announce every state to screen readers. **Screen reader mode** swaps gestures for a few huge buttons.
-- A 30-second spoken tutorial on first run also asks for camera and microphone permission.
+- No tutorial: the first tap opens the camera (the phone asks for permission) and the app speaks the disclaimer once.
 
 ## Settings you can change (optional environment variables)
 

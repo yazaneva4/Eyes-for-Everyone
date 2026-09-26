@@ -13,7 +13,6 @@ const defaults = () => ({
   textPt: 40,
   theme: 'yellow',
   srMode: false,
-  tutorialDone: false,
   disclaimerShown: false,
 });
 

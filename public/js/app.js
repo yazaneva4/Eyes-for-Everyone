@@ -1,5 +1,5 @@
 // The brain of the app: a small state machine driven by one giant tap target.
-//   start → (tutorial) → ready ⇄ listening → thinking → answer → listening …
+//   start → ready ⇄ listening → thinking → answer → listening …
 //   double-tap: new photo · long-press: repeat answer · hold 3 s: settings
 import { t, setLang, LANG_ORDER } from './i18n.js';
 import { settings, save, applyLook, RATES, SIZES, THEMES, step } from './settings.js';
@@ -37,7 +37,6 @@ let history = []; // questions and answers about the current photo
 let lastAnswer = '';
 let recorderP = null;
 let prompting = false;
-let tutorialLines = false;
 let blurStrikes = 0;
 let abort = null;
 let returnState = 'ready';
@@ -107,7 +106,6 @@ function flash() {
 function updateLabels() {
   const prompt = {
     start: t('tapToStart'),
-    tutorial: t('sr.skip'),
     ready: t('ready'),
     listening: t('sr.stop'),
     thinking: t('sr.wait'),
@@ -118,7 +116,6 @@ function updateLabels() {
   el.welcomeSr.textContent = t('srModeButton');
   const main = {
     start: t('start'),
-    tutorial: t('sr.skip'),
     ready: t('sr.takePhoto'),
     listening: t('sr.stop'),
     thinking: t('sr.wait'),
@@ -150,7 +147,7 @@ function rawTap() {
   if (now - lastAction < TIMING.DEBOUNCE) return; // accidental extra tap
   vibrate(20);
   // Double-tap means nothing in these states, so act at once for a snappy shutter.
-  if (['start', 'tutorial', 'ready'].includes(state)) {
+  if (['start', 'ready'].includes(state)) {
     lastAction = now;
     return onTap();
   }
@@ -228,12 +225,6 @@ function onTap() {
   switch (state) {
     case 'start':
       return begin();
-    case 'tutorial':
-      if (tutorialLines) {
-        tutorialLines = false;
-        stopSpeaking();
-      }
-      return;
     case 'ready':
       return takePhoto();
     case 'listening':
@@ -277,36 +268,6 @@ async function begin() {
   unlockVoice();
   sounds.unlock();
   requestWakeLock();
-  if (!settings.tutorialDone) return runTutorial();
-  goReady();
-}
-
-async function runTutorial() {
-  const my = ++op;
-  photo = null;
-  setState('tutorial');
-  tutorialLines = true;
-  for (const line of t('tutorial')) {
-    if (!tutorialLines || my !== op) break;
-    await say(line);
-  }
-  tutorialLines = false;
-  if (my !== op) return;
-  await showDisclaimer();
-  if (my !== op) return;
-  await say(t('permission'));
-  try {
-    if (!new URLSearchParams(location.search).has('demo')) {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
-      s.getTracks().forEach((tr) => tr.stop());
-    }
-    if (my === op) await say(t('thanks'));
-  } catch {
-    // goReady will explain if the camera is blocked.
-  }
-  if (my !== op) return;
-  settings.tutorialDone = true;
-  save();
   goReady();
 }
 
@@ -574,13 +535,12 @@ function renderSettings() {
   b('size').textContent = t('settings.size', { n: settings.textPt });
   b('theme').textContent = t(`themeNames.${settings.theme}`);
   b('sr').textContent = t('settings.sr', { v: t(settings.srMode ? 'settings.on' : 'settings.off') });
-  b('tutorial').textContent = t('settings.tutorial');
   b('done').textContent = t('settings.done');
   el.settings.setAttribute('aria-label', t('status.settings'));
 }
 
 function openSettings() {
-  if (['settings', 'tutorial', 'thinking'].includes(state)) return;
+  if (['settings', 'thinking'].includes(state)) return;
   returnState = state === 'start' ? 'start' : photo ? 'answer' : 'ready';
   cancelWork();
   ++op;
@@ -591,10 +551,9 @@ function openSettings() {
   say(t('settings.open'), { display: false });
 }
 
-function closeSettings(next) {
+function closeSettings() {
   el.settings.hidden = true;
   applyLook();
-  if (next === 'tutorial') return runTutorial();
   if (returnState === 'start') return showStart();
   if (returnState === 'answer' && photo) {
     ++op;
@@ -612,7 +571,7 @@ function bindSettings() {
     vibrate(30);
     sounds.tap();
     const key = btn.dataset.set;
-    if (key === 'done' || key === 'tutorial') return closeSettings(key);
+    if (key === 'done') return closeSettings();
     const msg = SETTING_ACTIONS[key]();
     save();
     applyLook();
