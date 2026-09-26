@@ -44,7 +44,7 @@ const STRINGS = {
       language: 'Language',
       textSize: 'Text size',
       speechSpeed: 'Speech speed',
-      colours: 'Colours',
+      colours: 'Colors',
       reader: 'Screen reader mode',
       open: 'Settings.',
       speed: 'Speed {n}',

@@ -66,12 +66,28 @@ let pendingPicture = null; // a picture dropped on the page before the first tap
 function setState(s) {
   state = s;
   el.body.dataset.state = s;
-  el.statusWord.textContent = t(`status.${s}`);
+  morph(pill, () => (el.statusWord.textContent = t(`status.${s}`)));
   el.liveStatus.textContent = t(`status.${s}`);
   if (s !== 'start') vibrate(40);
   el.body.dataset.photo = photo && ['listening', 'thinking', 'answer'].includes(s) ? 'on' : 'off';
   updateLabels();
 }
+
+// Liquid motion: when a glass panel changes size (new message, new status word),
+// it morphs from its old size to the new one instead of jumping.
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+function morph(box, change) {
+  const a = box.getBoundingClientRect();
+  change();
+  const b = box.getBoundingClientRect();
+  if (REDUCED.matches || !box.animate || (Math.abs(a.width - b.width) < 2 && Math.abs(a.height - b.height) < 2)) return;
+  box.animate([{ width: `${a.width}px`, height: `${a.height}px` }, { width: `${b.width}px`, height: `${b.height}px` }], {
+    duration: 460,
+    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  });
+}
+const sheet = document.querySelector('.sheet');
+const pill = document.querySelector('.pill');
 
 const overflows = (inner) => inner.offsetHeight > el.message.clientHeight + 1 || inner.scrollWidth > el.message.clientWidth + 1;
 
@@ -99,6 +115,11 @@ function fit(text, maxPt = settings.textPt, live = false) {
 let paging = false;
 let pagePt = 32;
 function show(text) {
+  morph(sheet, () => layoutText(text));
+  if (settings.srMode) announce(text);
+}
+
+function layoutText(text) {
   paging = !fit(text);
   // Too long even at the smallest size: show one sentence at a time, in step with the voice,
   // all at the same size so the text does not jump around.
@@ -107,7 +128,6 @@ function show(text) {
     pagePt = Math.min(...parts.map((p) => fit(p) || MIN_PT));
     fit(parts[0], pagePt);
   }
-  if (settings.srMode) announce(text);
 }
 
 function announce(text) {

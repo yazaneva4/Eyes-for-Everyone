@@ -32,6 +32,8 @@
   --level: 0;
   --text-size: 24pt;
   --gap: 16px;
+  --r-lg: 30px; /* sheets */
+  --r-md: 20px; /* groups inside sheets */
   --top-h: 64px; /* top bar */
   --dock-h: 178px; /* modes + shutter row */
   --font: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', 'Noto Sans Arabic', 'Noto Sans Malayalam', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -333,7 +335,6 @@ body.recording .edge {
   padding: calc(var(--top-h) + env(safe-area-inset-top) + 8px) max(var(--gap), env(safe-area-inset-right))
     calc(var(--dock-h) + env(safe-area-inset-bottom)) max(var(--gap), env(safe-area-inset-left));
   pointer-events: none;
-  transition: padding 0.4s var(--spring);
 }
 body[data-state='start']:not(.sr) .hud {
   padding-bottom: calc(90px + env(safe-area-inset-bottom));
@@ -342,6 +343,7 @@ body[data-state='start']:not(.sr) .hud {
 .pill {
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 0.3em;
@@ -412,7 +414,7 @@ body[data-state='answer'] .orb {
     transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 body[data-state='start'] .brand,
-body[data-state='ready']:not([data-mode='light']):not([data-mode='qibla']):not([data-mode='color']) .viewfinder,
+body[data-state='ready'][data-camera='on']:not([data-mode='light']):not([data-mode='qibla']):not([data-mode='color']) .viewfinder,
 body[data-state='ready'][data-mode='color'] .target,
 body[data-state='ready'][data-mode='light'] .lightmeter,
 body[data-state='ready'][data-mode='qibla'] .compass,
@@ -527,10 +529,11 @@ body:not([data-running='qibla']) .compass .needle {
 }
 .viewfinder i {
   position: absolute;
-  width: 44px;
-  height: 44px;
-  border: 5px solid var(--fg);
-  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
+  width: 34px;
+  height: 34px;
+  border: 3.5px solid var(--fg);
+  opacity: 0.85;
+  filter: drop-shadow(0 0 4px rgb(0 0 0 / 0.55));
 }
 .viewfinder i:nth-child(1) {
   top: 0;
@@ -657,33 +660,26 @@ body:not(.recording) .voice .ring {
 
 .sheet {
   flex: none;
-  border-radius: 40px;
+  overflow: hidden;
+  border-radius: var(--r-lg);
   animation: sheet-in 0.7s var(--spring);
   padding: 14px clamp(20px, 5vw, 34px) clamp(22px, 4vmin, 32px);
   transition: box-shadow 0.3s;
-}
-.grabber {
-  display: block;
-  width: 44px;
-  height: 5px;
-  margin: 0 auto 12px;
-  border-radius: 99px;
-  background: var(--fg);
-  opacity: 0.35;
 }
 #message {
   max-height: 60dvh;
   overflow: hidden;
   font-size: var(--text-size);
-  line-height: 1.2;
-  letter-spacing: -0.005em;
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: 0;
   text-align: start;
   overflow-wrap: break-word;
   hyphens: manual;
 }
 #message > span {
   display: block;
-  animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @keyframes sheet-in {
   from {
@@ -694,7 +690,7 @@ body:not(.recording) .voice .ring {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(6px);
   }
 }
 body[data-state='start'] #message {
@@ -820,34 +816,33 @@ body[data-state='settings'] .dock {
 /* Mode names, like the photo / video / portrait strip in a camera app */
 .modebar {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   max-width: 100%;
   overflow-x: auto;
+  scroll-snap-type: x proximity;
   scrollbar-width: none;
   padding: 5px;
   border-radius: 999px;
-  background: rgb(0 0 0 / 0.45);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  backdrop-filter: blur(16px) saturate(160%);
   transition: opacity 0.3s;
+  /* soft fade where the strip scrolls off the edge */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
 }
 .modebar::-webkit-scrollbar {
   display: none;
-}
-:root[data-theme='light'] .modebar {
-  background: rgb(255 255 255 / 0.7);
 }
 .modebar button {
   flex: none;
   border: 0;
   background: transparent;
   color: var(--fg);
-  opacity: 0.75;
-  font-size: 13pt;
+  opacity: 0.8;
+  font-size: 12.5pt;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 8px 12px;
+  padding: 8px 13px;
+  scroll-snap-align: center;
   border-radius: 999px;
   cursor: pointer;
   touch-action: manipulation;
@@ -880,17 +875,21 @@ body:is([data-state='listening'], [data-state='thinking']) .modebar {
   height: 92px;
   padding: 0;
   border-radius: 50%;
-  border: 5px solid var(--fg);
-  background: rgb(0 0 0 / 0.25);
+  border: 4px solid var(--fg);
+  background: rgb(var(--tint) / 0.35);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
   display: grid;
   place-items: center;
   cursor: pointer;
   touch-action: manipulation;
-  box-shadow: 0 10px 40px rgb(0 0 0 / 0.45);
+  box-shadow:
+    inset 0 1px 1px var(--rim-hi),
+    0 12px 36px -8px var(--shadow);
 }
 .shutter-btn .disc {
-  width: 72px;
-  height: 72px;
+  width: 74px;
+  height: 74px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -979,7 +978,7 @@ body.sr #stage {
   max-height: 100%;
   overflow: auto;
   padding: 18px 18px 22px;
-  border-radius: 34px;
+  border-radius: var(--r-lg);
   animation: sheet-in 0.55s var(--spring);
 }
 .sheet-head {
@@ -1005,7 +1004,7 @@ body.sr #stage {
 }
 .group {
   display: grid;
-  border-radius: 22px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: color-mix(in srgb, var(--fg) 6%, transparent);
   box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--fg) 22%, transparent);
@@ -1260,7 +1259,7 @@ body.dropping #drop {
   justify-items: center;
   gap: 16px;
   padding: 40px 56px;
-  border-radius: 40px;
+  border-radius: var(--r-lg);
   font-size: 26pt;
   text-align: center;
   outline: 5px dashed var(--fg);
