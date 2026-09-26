@@ -109,20 +109,31 @@ async function readError(r) {
   }
 }
 
+// Each Gemini model has its own quota, so when one is used up the next one is tried.
+const geminiModels = () =>
+  [process.env.GEMINI_MODEL || 'gemini-flash-latest', process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-lite-latest'].filter(
+    (m, i, all) => m && all.indexOf(m) === i
+  );
+
 async function geminiGenerate(parts, system, maxTokens = 8192, allowEmpty = false) {
-  // Google is sometimes briefly overloaded (429/5xx); try once more before giving up.
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await geminiOnce(parts, system, maxTokens, allowEmpty);
-    } catch (e) {
-      if (attempt >= 1 || !e.retry) throw e;
-      await new Promise((r) => setTimeout(r, 700));
+  let lastErr;
+  for (const model of geminiModels()) {
+    // Google is sometimes briefly overloaded (5xx); try the same model once more.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await geminiOnce(model, parts, system, maxTokens, allowEmpty);
+      } catch (e) {
+        lastErr = e;
+        if (e.status === 429 || e.status === 404) break; // quota used up or model missing: next model
+        if (!e.retry) throw e;
+        await new Promise((r) => setTimeout(r, 700));
+      }
     }
   }
+  throw lastErr;
 }
 
-async function geminiOnce(parts, system, maxTokens, allowEmpty) {
-  const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+async function geminiOnce(model, parts, system, maxTokens, allowEmpty) {
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
@@ -136,7 +147,7 @@ async function geminiOnce(parts, system, maxTokens, allowEmpty) {
       signal: AbortSignal.timeout(25000),
     }
   );
-  if (!r.ok) throw Object.assign(new Error(`Gemini ${r.status}: ${await readError(r)}`), { retry: r.status === 429 || r.status >= 500 });
+  if (!r.ok) throw Object.assign(new Error(`Gemini ${model} ${r.status}: ${await readError(r)}`), { retry: r.status >= 500, status: r.status });
   const j = await r.json();
   const text = (j.candidates?.[0]?.content?.parts || [])
     .filter((p) => !p.thought)
