@@ -137,8 +137,8 @@ It is built to feel like a modern camera app, not a remote control:
 
 ## Keeping costs low
 
-- Gemini uses `gemini-2.5-flash-lite`, the cheapest Gemini model that can see images, with "thinking" turned off.
-- Photos are sent at medium detail (about 256 image tokens). Full detail is used only when the question asks to read something, like a label, sign, price, date or medicine box.
+- Gemini uses the cheapest image-capable model your key can use (Flash-Lite), with "thinking" off or at its minimum.
+- Photos are sent at reduced detail (about 256–280 image tokens). Full detail is used only when the question asks to read something, like a label, sign, price, date or medicine box.
 - Answers are capped at 300 output tokens (800 when reading text). Follow-ups send only the last two questions.
 - If Gemini is out of quota, the app uses OpenRouter's free models, which cost nothing.
 - The `/test` page shows the real input and output tokens for every answer, and they are included in the CSV export.
@@ -156,7 +156,7 @@ It is built to feel like a modern camera app, not a remote control:
 | Name | Default | Meaning |
 | --- | --- | --- |
 | `AI_PROVIDER` | `gemini` | Which AI answers first (`gemini` or `openrouter`). The other one is the automatic fallback. |
-| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | The cheapest Gemini that can see images ($0.10 in / $0.40 out per 1M tokens). |
+| `GEMINI_MODEL` | *(cheapest available)* | By default the app tries `gemini-2.5-flash-lite` ($0.10/$0.40), then `gemini-3.1-flash-lite` ($0.25/$1.50), then `gemini-3.5-flash-lite` ($0.30/$2.50), and remembers any that Google has retired. Set this to force one model. |
 | `GEMINI_FALLBACK_MODEL` | *(none)* | Optional second Gemini model. By default the free OpenRouter models are the backup instead. |
 | `OPENROUTER_MODEL` | `google/gemma-4-31b-it:free` | **Only free models are used**: an ID must end in `:free`, and safety-filter models are blocked. Backups: `google/gemma-4-26b-a4b-it:free`, `qwen/qwen3.8-27b:free`. |
 | `ELEVENLABS_VOICE_ID` | `JBFqnCBsd6RMkjVDRZzb` | Any voice ID from your ElevenLabs voice library. |

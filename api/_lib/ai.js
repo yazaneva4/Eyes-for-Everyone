@@ -40,22 +40,26 @@ export async function checkKeys() {
       return [name, { status: -1, hint: 'could not reach provider' }];
     }
   };
-  const gm = geminiModels()[0];
+  const gms = geminiModels();
   const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
   // Gemini: one real 5-token request, because a key can be valid but out of quota.
+  // Reports the cheapest model that actually works for this key.
   const geminiReal = async () => {
     if (!k.gemini) return ['gemini', { status: 0, hint: 'no key set' }];
-    try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': k.gemini },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Say ok' }] }], generationConfig: { maxOutputTokens: 5 } }),
-        signal: AbortSignal.timeout(10000),
-      });
-      return ['gemini', { status: r.status, hint: hint(r.status), model: gm }];
-    } catch {
-      return ['gemini', { status: -1, hint: 'could not reach provider' }];
+    let last = { status: -1, hint: 'could not reach provider' };
+    for (const gm of gms) {
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-goog-api-key': k.gemini },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Say ok' }] }], generationConfig: { maxOutputTokens: 5 } }),
+          signal: AbortSignal.timeout(10000),
+        });
+        last = { status: r.status, hint: hint(r.status), model: gm };
+        if (r.status !== 404) return ['gemini', last];
+      } catch {}
     }
+    return ['gemini', last];
   };
   const out = await Promise.all([
     geminiReal(),
@@ -124,10 +128,18 @@ async function readError(r) {
   }
 }
 
-// Cheapest Gemini model that can see images: gemini-2.5-flash-lite ($0.10 in / $0.40 out per 1M tokens).
-// A second Gemini model is only used if you set GEMINI_FALLBACK_MODEL; otherwise the free OpenRouter models are the backup.
+// Gemini models that can see images, cheapest first (USD per 1M tokens in / out).
+// Google retires old models for new keys (404), so the first one that works is used and
+// retired ones are remembered and skipped. After these, the free OpenRouter models are the backup.
+const CHEAPEST_GEMINI = [
+  'gemini-2.5-flash-lite', // $0.10 / $0.40
+  'gemini-3.1-flash-lite', // $0.25 / $1.50
+  'gemini-3.5-flash-lite', // $0.30 / $2.50
+];
+const retired = new Set();
 const geminiModels = () =>
-  [process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite', process.env.GEMINI_FALLBACK_MODEL].filter((m, i, all) => m && all.indexOf(m) === i);
+  (process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL, process.env.GEMINI_FALLBACK_MODEL] : CHEAPEST_GEMINI)
+    .filter((m, i, all) => m && all.indexOf(m) === i && !retired.has(m));
 
 // Questions that need the fine print get full image detail; everything else uses medium (~4× fewer image tokens).
 const READ_WORDS = /\b(read|text|say|says|written|label|sign|print|ingredients|expiry|expire|date|price|number|medicine|dose)\b|اقرأ|اقرا|مكتوب|النص|ملصق|السعر|التاريخ|دواء|വായിക്ക|എഴുതി|ലേബൽ|വില|തീയതി|മരുന്ന്/i;
@@ -144,6 +156,7 @@ async function geminiGenerate(parts, system, opts = {}) {
         return await geminiOnce(model, parts, system, opts);
       } catch (e) {
         lastErr = e;
+        if (e.status === 404) retired.add(model); // not available to this key: never try it again
         if (e.status === 429 || e.status === 404) break; // quota used up or model missing: next model
         if (!e.retry) throw e;
         await new Promise((r) => setTimeout(r, 700));
@@ -156,10 +169,12 @@ async function geminiGenerate(parts, system, opts = {}) {
 async function geminiOnce(model, parts, system, { maxTokens = 300, allowEmpty = false, detail = 'medium' } = {}, plain = false) {
   const config = { temperature: 0.2, maxOutputTokens: maxTokens };
   if (!plain) {
+    const v3 = /gemini-3/.test(model);
     // Fewer image tokens unless we need to read small print.
-    config.mediaResolution = detail === 'high' ? 'MEDIA_RESOLUTION_HIGH' : 'MEDIA_RESOLUTION_MEDIUM';
-    // "Thinking" tokens are billed as output; 2.5 models can switch it off.
-    if (model.includes('2.5')) config.thinkingConfig = { thinkingBudget: 0 };
+    // Gemini 3: low ≈ 280 image tokens, high ≈ 1120. Gemini 2.5: medium ≈ 256, high = full tiles.
+    config.mediaResolution = detail === 'high' ? 'MEDIA_RESOLUTION_HIGH' : v3 ? 'MEDIA_RESOLUTION_LOW' : 'MEDIA_RESOLUTION_MEDIUM';
+    // "Thinking" tokens are billed as output: switch it off (2.5) or to the minimum (3.x).
+    config.thinkingConfig = v3 ? { thinkingLevel: 'minimal' } : { thinkingBudget: 0 };
   }
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
