@@ -109,7 +109,19 @@ async function readError(r) {
   }
 }
 
-async function geminiGenerate(parts, system, maxTokens = 2048) {
+async function geminiGenerate(parts, system, maxTokens = 8192) {
+  // Google is sometimes briefly overloaded (429/5xx); try once more before giving up.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await geminiOnce(parts, system, maxTokens);
+    } catch (e) {
+      if (attempt >= 1 || !e.retry) throw e;
+      await new Promise((r) => setTimeout(r, 700));
+    }
+  }
+}
+
+async function geminiOnce(parts, system, maxTokens) {
   const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -124,12 +136,15 @@ async function geminiGenerate(parts, system, maxTokens = 2048) {
       signal: AbortSignal.timeout(25000),
     }
   );
-  if (!r.ok) throw new Error(`Gemini ${r.status}: ${await readError(r)}`);
+  if (!r.ok) throw Object.assign(new Error(`Gemini ${r.status}: ${await readError(r)}`), { retry: r.status === 429 || r.status >= 500 });
   const j = await r.json();
-  return (j.candidates?.[0]?.content?.parts || [])
+  const text = (j.candidates?.[0]?.content?.parts || [])
+    .filter((p) => !p.thought)
     .map((p) => p.text || '')
     .join('')
     .trim();
+  if (!text) throw Object.assign(new Error(`Gemini empty (${j.candidates?.[0]?.finishReason || 'no candidate'})`), { retry: true });
+  return text;
 }
 
 async function openaiChat(messages) {
