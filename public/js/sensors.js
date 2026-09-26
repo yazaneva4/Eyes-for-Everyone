@@ -168,31 +168,3 @@ export function nameColor([r, g, b]) {
   const shade = l < 0.25 ? 'dark' : l > 0.75 ? 'light' : '';
   return { key, shade };
 }
-
-// ---------- time, Hijri date, battery (no internet) ----------
-
-const LOC = { en: 'en-GB', ar: 'ar-SA', ml: 'ml-IN' };
-
-export function timeText(lang) {
-  const loc = lang === 'en' ? 'en-US' : LOC[lang]; // 12-hour clock reads more naturally in English
-  return new Intl.DateTimeFormat(`${loc}-u-ca-gregory`, { hour: 'numeric', minute: '2-digit' }).format(new Date());
-}
-
-/** { g: Gregorian date, h: Hijri (Umm al-Qura, the calendar used in Saudi Arabia) } */
-export function dateTexts(lang) {
-  const now = new Date();
-  const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-  const g = new Intl.DateTimeFormat(`${LOC[lang]}-u-ca-gregory`, opts).format(now);
-  const h = new Intl.DateTimeFormat(`${LOC[lang]}-u-ca-islamic-umalqura`, { day: 'numeric', month: 'long', year: 'numeric' }).format(now);
-  return { g, h };
-}
-
-/** { level: 0–100, charging } or null when the browser does not tell (iPhone, Firefox). */
-export async function batteryInfo() {
-  try {
-    const b = await navigator.getBattery?.();
-    return b ? { level: Math.round(b.level * 100), charging: b.charging } : null;
-  } catch {
-    return null;
-  }
-}

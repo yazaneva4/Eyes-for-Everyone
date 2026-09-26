@@ -35,7 +35,6 @@
         <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></symbol>
         <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8Z" /></symbol>
         <symbol id="i-redo" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.6h4.6" /></symbol>
-        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4Z" /><path d="M12 10.5v6M9 13.5h6" /></symbol>
         <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></symbol>
         <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3Z" /></symbol>
         <symbol id="i-speed" viewBox="0 0 24 24"><path d="M4.2 17a8.5 8.5 0 1 1 15.6 0" /><path d="m12 13 4-4.5" /><circle cx="12" cy="13" r="1.2" /></symbol>
@@ -46,7 +45,9 @@
         <symbol id="i-money" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.6" /><path d="M6 9.5v5M18 9.5v5" /></symbol>
         <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" /></symbol>
         <symbol id="i-kaaba" viewBox="0 0 24 24"><path d="M12 3 21 7.5v9L12 21l-9-4.5v-9Z" /><path d="M3 7.5 12 12l9-4.5M12 12v9M3.4 10.6 12 15l8.6-4.4" /></symbol>
-        <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" /><path d="M5 12v7.5h14V12" /></symbol>
+        <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M9.4 9.3a2.7 2.7 0 1 1 3.7 2.5c-.7.3-1.1.9-1.1 1.7v.6" /><circle cx="12" cy="17.2" r=".6" fill="currentColor" /></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" /></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></symbol>
         <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c1.4 0 2-1 2-2s-.8-1.4-.8-2.4c0-1 .9-1.6 2-1.6H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8Z" /><circle cx="7.5" cy="11" r="1.2" /><circle cx="10.5" cy="7.2" r="1.2" /><circle cx="15" cy="7.8" r="1.2" /></symbol>
         <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="9" cy="9.5" r="1.8" /><path d="m4 18 5.5-5.5 4 4 2.5-2.5L21 19" /></symbol>
         <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 3 19 20l-7-4-7 4Z" /></symbol>
@@ -65,9 +66,14 @@
     <div class="edge edge-soft" aria-hidden="true"></div>
     <div class="edge edge-sharp" aria-hidden="true"></div>
 
-    <div class="hud">
+    <!-- Top bar: help · status · settings -->
+    <header class="topbar">
+      <button id="btn-help" class="icon-btn glass" type="button" aria-label="Help"><svg class="ic" aria-hidden="true"><use href="#i-help" /></svg></button>
       <div class="pill glass" aria-hidden="true"><span class="orb"></span><span id="status-word">START</span></div>
+      <button id="btn-settings" class="icon-btn glass" type="button" aria-label="Settings"><svg class="ic" aria-hidden="true"><use href="#i-gear" /></svg></button>
+    </header>
 
+    <div class="hud">
       <!-- Middle of the screen: a picture of what is happening now -->
       <div class="focus" aria-hidden="true">
         <div class="brand">
@@ -75,8 +81,6 @@
           <div class="wordmark" id="wordmark">Eyes for Everyone</div>
         </div>
         <div class="viewfinder"><i></i><i></i><i></i><i></i></div>
-        <div class="shutter"><span><svg class="ic"><use id="mode-icon" href="#i-cam" /></svg></span></div>
-        <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="target"><span class="swatch"></span></div>
         <div class="lightmeter"><span class="glow"></span><span class="core"><svg class="ic"><use href="#i-sun" /></svg></span></div>
         <div class="compass">
@@ -97,46 +101,77 @@
       </div>
     </div>
 
-    <!-- The whole screen is this one button -->
+    <!-- The whole screen is one big button: tapping anywhere works like the shutter -->
     <button id="stage" type="button" aria-label="Tap anywhere to start"></button>
 
-    <button id="welcome-sr" class="big glass" type="button">
-      <svg class="ic" aria-hidden="true"><use href="#i-reader" /></svg><span class="v">Screen reader mode</span>
-    </button>
-
-    <!-- Screen reader mode: a few very large buttons instead of gestures -->
-    <div id="sr-panel">
-      <button id="sr-main" class="big glass primary" type="button">
-        <svg class="ic ic-cam" aria-hidden="true"><use href="#i-cam" /></svg>
-        <svg class="ic ic-mic" aria-hidden="true"><use href="#i-mic" /></svg>
-        <svg class="ic ic-spark" aria-hidden="true"><use href="#i-spark" /></svg>
-        <span class="v">Start</span>
-      </button>
-      <div class="sr-row">
-        <button id="sr-new" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg><span class="v">New photo</span></button>
-        <button id="sr-repeat" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-redo" /></svg><span class="v">Repeat</span></button>
-        <button id="sr-open" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-image" /></svg><span class="v">Open picture</span></button>
-        <button id="sr-mode" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-redo" /></svg><span class="v">Mode</span></button>
-        <button id="sr-share" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-share" /></svg><span class="v">Share</span></button>
-        <button id="sr-settings" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-gear" /></svg><span class="v">Settings</span></button>
+    <!-- Bottom dock, like a camera app: modes, gallery, shutter, and one action that changes with the moment -->
+    <nav class="dock" aria-label="Controls">
+      <div class="modebar" id="modebar" role="tablist">
+        <button type="button" role="tab" data-mode="ask">Ask</button>
+        <button type="button" role="tab" data-mode="read">Read</button>
+        <button type="button" role="tab" data-mode="money">Money</button>
+        <button type="button" role="tab" data-mode="color">Color</button>
+        <button type="button" role="tab" data-mode="light">Light</button>
+        <button type="button" role="tab" data-mode="qibla">Qibla</button>
       </div>
-    </div>
+      <div class="controls">
+        <button id="btn-gallery" class="icon-btn glass" type="button" aria-label="Open picture"><svg class="ic" aria-hidden="true"><use href="#i-image" /></svg></button>
+        <button id="btn-shutter" class="shutter-btn" type="button" aria-label="Take photo">
+          <span class="disc"><svg class="ic" aria-hidden="true"><use id="shutter-icon" href="#i-cam" /></svg></span>
+        </button>
+        <button id="btn-side" class="icon-btn glass" type="button" aria-label="Repeat answer"><svg class="ic" aria-hidden="true"><use id="side-icon" href="#i-redo" /></svg></button>
+      </div>
+    </nav>
+
+    <button id="sr-link" class="text-link" type="button">Screen reader mode</button>
 
     <div id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
       <div class="settings-sheet glass">
-        <h2 id="settings-title"><svg class="ic" aria-hidden="true"><use href="#i-gear" /></svg><span class="v">Settings</span></h2>
-        <div class="rows">
-          <button type="button" class="row" data-set="lang"><svg class="ic" aria-hidden="true"><use href="#i-globe" /></svg><span class="v"></span></button>
-          <button type="button" class="row" data-set="speed"><svg class="ic" aria-hidden="true"><use href="#i-speed" /></svg><span class="v"></span></button>
-          <button type="button" class="row" data-set="size"><svg class="ic" aria-hidden="true"><use href="#i-text" /></svg><span class="v"></span></button>
-          <button type="button" class="row" data-set="theme"><svg class="ic" aria-hidden="true"><use href="#i-contrast" /></svg><span class="v"></span></button>
-          <button type="button" class="row" data-set="sr"><svg class="ic" aria-hidden="true"><use href="#i-reader" /></svg><span class="v"></span></button>
+        <header class="sheet-head">
+          <h2 id="settings-title">Settings</h2>
+          <button id="settings-done" class="done-btn" type="button">Done</button>
+        </header>
+        <div class="group">
+          <div class="set-row">
+            <svg class="ic" aria-hidden="true"><use href="#i-globe" /></svg>
+            <span class="lbl" id="lbl-lang">Language</span>
+            <div class="seg" role="radiogroup" aria-labelledby="lbl-lang" data-set="lang">
+              <button type="button" role="radio" data-v="en" lang="en">EN</button>
+              <button type="button" role="radio" data-v="ar" lang="ar">عربي</button>
+              <button type="button" role="radio" data-v="ml" lang="ml">മല</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <svg class="ic" aria-hidden="true"><use href="#i-text" /></svg>
+            <label class="lbl" id="lbl-size" for="set-size">Text size</label>
+            <input id="set-size" type="range" min="0" max="8" step="1" />
+            <output id="out-size" for="set-size">24</output>
+          </div>
+          <div class="set-row">
+            <svg class="ic" aria-hidden="true"><use href="#i-speed" /></svg>
+            <label class="lbl" id="lbl-speed" for="set-speed">Speech speed</label>
+            <input id="set-speed" type="range" min="0" max="6" step="1" />
+            <output id="out-speed" for="set-speed">1×</output>
+          </div>
+          <div class="set-row">
+            <svg class="ic" aria-hidden="true"><use href="#i-contrast" /></svg>
+            <span class="lbl" id="lbl-theme">Colours</span>
+            <div class="swatches" role="radiogroup" aria-labelledby="lbl-theme">
+              <button type="button" role="radio" class="sw sw-yellow" data-v="yellow"></button>
+              <button type="button" role="radio" class="sw sw-white" data-v="white"></button>
+              <button type="button" role="radio" class="sw sw-light" data-v="light"></button>
+            </div>
+          </div>
+          <div class="set-row">
+            <svg class="ic" aria-hidden="true"><use href="#i-reader" /></svg>
+            <span class="lbl" id="lbl-sr">Screen reader mode</span>
+            <button id="set-sr" class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="lbl-sr"><span></span></button>
+          </div>
         </div>
-        <button type="button" class="big done" data-set="done"><svg class="ic" aria-hidden="true"><use href="#i-check" /></svg><span class="v"></span></button>
       </div>
     </div>
 
-    <!-- Pictures from the gallery or the computer (swipe down, O key, or the Open button) -->
+    <!-- Pictures from the gallery or the computer (gallery button, swipe down, or the O key) -->
     <input id="file-input" type="file" accept="image/*" hidden />
 
     <!-- Laptop/PC: shown while a picture is dragged over the window -->

@@ -11,14 +11,14 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 | **Double-tap** (ANSWER) | Ask another question about the **same** photo. |
 | **Double-tap** (while listening / thinking) | Cancel and go back to the camera. |
 | **Press and hold** | Repeat the last answer. |
-| **Hold 3 seconds** | Settings (language, speed, text size, theme, screen reader mode). |
-| **Swipe left / right** | Change mode: **Ask**, **Read**, **Money**, **Light**, **Qibla**. |
-| **Swipe up** (on an answer) | Share the answer with family (WhatsApp, Messages…). |
+| **Hold 3 seconds** | Settings: language, text size, speech speed, colours, screen reader mode (or tap ⚙). |
+| **Swipe left / right** (or tap a mode name) | Change mode: **Ask**, **Read**, **Money**, **Color**, **Light**, **Qibla**. |
 | **Swipe down** | Open a picture from the gallery. |
 
-**Laptop / PC:** press **Space** (or click anywhere) instead of tapping. The other keys are **N** new photo, **R** repeat, **← / →** change mode (or scroll sideways on a trackpad), **↑** share, **O** open a picture, **S** settings and **H** spoken help. You can also **drag a picture onto the page** or **paste** one (Ctrl/⌘+V), for example a screenshot. If the computer has no camera, the app says so and suggests dropping or pasting a picture instead.
+The screen looks like a camera app. At the **bottom** is a strip of mode names, the **gallery** button, the round **shutter**, and one button that changes with the moment: *repeat* when ready, *cancel* while listening or thinking, and *ask more* after an answer. At the **top** are **help (?)** and **settings (⚙)**. Tapping anywhere else on the screen still works like the shutter.
 
-**Share into the app:** once installed on Android (browser menu → *Install app*), *Eyes for Everyone* appears in the phone's **Share** menu, so a photo from WhatsApp or the gallery can be sent straight to it. The picture is held only until the app opens, then deleted.
+**Laptop / PC:** press **Space** (or click anywhere) instead of tapping. The other keys are **A** ask more, **R** repeat, **← / →** change mode (or scroll sideways on a trackpad), **O** open a picture, **S** settings and **H** spoken help. You can also **drag a picture onto the page** or **paste** one (Ctrl/⌘+V), for example a screenshot. If the computer has no camera, the app says so and suggests dropping or pasting a picture instead.
+
 | Say *repeat · faster · slower · louder · change language · bigger text* | Voice commands while listening (English, Arabic, Malayalam). |
 
 ### Modes
@@ -32,13 +32,9 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 | **Light** | Starts a tone that rises with brightness, and speaks "dark / dim / bright". It uses no AI and no internet. Tap again to stop. |
 | **Qibla** | A talking compass: "turn left… turn right… you are facing the Qibla", with ticks and vibration. It uses GPS and the compass, and **the location never leaves the phone**. |
 
-While listening you can also just say *read*, *money*, *color*, *light*, *qibla*, *ask*, *share* or *open*. These need no photo and work offline:
-- *time* / «الوقت»
-- *date* / «التاريخ», which gives the **Hijri (Umm al-Qura) date and the Gregorian date**
-- *battery* / «البطارية»
-- *help* / «مساعدة», which speaks every gesture and command
+While listening you can also just say *read*, *money*, *color*, *light*, *qibla*, *ask*, *open* or *help* («مساعدة», which speaks every gesture and command).
 
-The app also opens without internet once it has been used, and Light, Qibla, Color, time and date keep working.
+The app also opens without internet once it has been used, and Light, Qibla and Color keep working.
 
 Taps while THINKING are ignored, and extra taps within 500 ms are ignored so accidental double touches do nothing.
 
@@ -60,8 +56,8 @@ Eyes-for-Everyone/
 │   ├── index.html            ← the skeleton of the one big screen.
 │   ├── css/app.css           ← the paint: big letters, strong colours, shiny glass and glowing animations.
 │   ├── js/app.js             ← the brain that decides what happens after every tap.
-│   ├── js/sensors.js         ← the light meter, Qibla compass, colour namer, time, Hijri date and battery, which all work without the internet.
-│   ├── sw.js                 ← keeps a copy of the app so it opens offline, and catches pictures shared from other apps.
+│   ├── js/sensors.js         ← the light meter, Qibla compass and colour namer, which all work without the internet.
+│   ├── sw.js                 ← keeps a copy of the app so it opens offline.
 │   ├── js/glass.js           ← makes the glass as clear as possible but never too clear to read, and moves its shine.
 │   ├── js/camera.js          ← opens the camera, snaps the photo, and checks it is not too dark or blurry.
 │   ├── js/listen.js          ← records your question with the microphone.
@@ -178,7 +174,7 @@ It is built to feel like a modern camera app, not a remote control:
 - Text is 24 pt by default and can be set from 18 to 64 pt; it never scrolls. Long answers shrink to fit, then show one sentence at a time in step with the voice.
 - There are three themes, all well above 7:1 contrast: yellow on black (default), white on black, and black on white. The "liquid glass" panels are at least 85% opaque, so the camera behind them can't lower the contrast.
 - The screen stays awake, and portrait and landscape both work.
-- Live regions announce every state to screen readers. **Screen reader mode** swaps gestures for a few huge buttons.
+- Live regions announce every state to screen readers. **Screen reader mode** turns off the full-screen gesture area so the labelled dock and top-bar buttons can be used with VoiceOver or TalkBack.
 - No tutorial: the first tap opens the camera (the phone asks for permission) and the app speaks the disclaimer once.
 
 ## Settings you can change (optional environment variables)

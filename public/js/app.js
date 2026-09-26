@@ -1,7 +1,8 @@
 // The brain of the app: a small state machine driven by one giant tap target.
 //   start → ready ⇄ listening → thinking → answer → listening …
 //   double-tap: new photo · long-press: repeat answer · hold 3 s: settings
-//   swipe left/right: change mode (Ask, Read, Money, Color, Light, Qibla) · swipe up: share · swipe down: open a picture
+//   swipe left/right or tap a mode name: change mode (Ask, Read, Money, Color, Light, Qibla) · swipe down: open a picture
+//   the dock (gallery · shutter · one changing action) and top bar (help · settings) do the same things with buttons
 //   laptop/PC: Space = tap, arrows = modes, N/R/O/S/H keys, drop or paste a picture
 import { t, setLang, LANG_ORDER } from './i18n.js';
 import { settings, save, applyLook, RATES, SIZES, THEMES, step } from './settings.js';
@@ -11,7 +12,7 @@ import { startCamera, stopCamera, capture, toJpegBase64, checkQuality, cameraRun
 import { startListening, useServerStt } from './listen.js';
 import { matchCommand } from './commands.js';
 import { initGlass } from './glass.js';
-import { startLight, lightWord, startQibla, centerColor, nameColor, timeText, dateTexts, batteryInfo } from './sensors.js';
+import { startLight, lightWord, startQibla, centerColor, nameColor } from './sensors.js';
 
 const TIMING = { LONG: 700, SETTINGS: 3000, DOUBLE: 320, DEBOUNCE: 500, ASK_TIMEOUT: 35000 };
 const MIN_PT = 16;
@@ -29,15 +30,15 @@ const el = {
   statusWord: $('status-word'),
   message: $('message'),
   flash: $('flash'),
-  welcomeSr: $('welcome-sr'),
-  srMain: $('sr-main'),
-  srNew: $('sr-new'),
-  srRepeat: $('sr-repeat'),
-  srSettings: $('sr-settings'),
-  srMode: $('sr-mode'),
-  srShare: $('sr-share'),
-  modeIcon: $('mode-icon'),
-  srOpen: $('sr-open'),
+  srLink: $('sr-link'),
+  btnHelp: $('btn-help'),
+  btnSettings: $('btn-settings'),
+  btnGallery: $('btn-gallery'),
+  btnShutter: $('btn-shutter'),
+  btnSide: $('btn-side'),
+  shutterIcon: $('shutter-icon'),
+  sideIcon: $('side-icon'),
+  modebar: $('modebar'),
   fileInput: $('file-input'),
   settings: $('settings'),
   wordmark: $('wordmark'),
@@ -58,7 +59,7 @@ let returnState = 'ready';
 let wakeLock = null;
 let mode = MODES.includes(settings.mode) ? settings.mode : 'ask';
 let sensor = null; // the running light meter or Qibla compass
-let pendingPicture = null; // a picture shared into the app before the first tap
+let pendingPicture = null; // a picture dropped on the page before the first tap
 
 // ---------- screen ----------
 
@@ -131,11 +132,21 @@ function readyPrompt() {
   return DESKTOP ? t('readyDesktop') : t('ready');
 }
 
-const MODE_ICON = { ask: 'i-cam', read: 'i-text', money: 'i-money', color: 'i-palette', light: 'i-sun', qibla: 'i-kaaba' };
+const MODE_ICON = { ask: null, read: 'i-text', money: 'i-money', color: 'i-palette', light: 'i-sun', qibla: 'i-kaaba' };
 function showMode() {
   el.body.dataset.mode = mode;
-  el.modeIcon.setAttribute('href', `#${MODE_ICON[mode]}`);
-  document.querySelectorAll('.dots i').forEach((d, i) => d.classList.toggle('on', MODES[i] === mode));
+  for (const b of el.modebar.children) {
+    const on = b.dataset.mode === mode;
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.tabIndex = on ? 0 : -1;
+    if (on) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+  updateLabels();
+}
+
+function setIcon(use, btn, id) {
+  btn.dataset.icon = id || 'none';
+  if (id) use.setAttribute('href', `#${id}`);
 }
 
 // Buttons keep their icon; only the words in .v change.
@@ -151,30 +162,41 @@ function updateLabels() {
     settings: '',
   }[state];
   el.stage.setAttribute('aria-label', prompt || t('appName'));
-  label(el.welcomeSr, t('srModeButton'));
   el.wordmark.textContent = t('appName');
-  const main = {
-    start: t('start'),
-    ready: mode === 'ask' ? t('sr.takePhoto') : t(`modes.${mode}.name`),
-    listening: t('sr.stop'),
-    thinking: t('sr.wait'),
-    answer: t('sr.newPhoto'),
-  }[state];
-  if (main) label(el.srMain, main);
-  el.srMain.setAttribute('aria-disabled', state === 'thinking' ? 'true' : 'false');
-  label(el.srNew, state === 'answer' ? t('sr.askAgain') : t('sr.newPhoto'));
-  label(el.srRepeat, t('sr.repeat'));
-  label(el.srSettings, t('sr.settings'));
-  label(el.srMode, t('sr.mode', { m: t(`modes.${mode}.name`) }));
-  label(el.srShare, t('sr.share'));
-  label(el.srOpen, t('sr.open'));
+  el.srLink.textContent = t('srModeButton');
   $('drop-text').textContent = t('dropHere');
-  el.srOpen.hidden = state !== 'ready';
-  el.srMode.hidden = state !== 'ready';
-  el.srShare.hidden = state !== 'answer' || !lastAnswer;
-  el.srNew.hidden = !['listening', 'thinking', 'answer'].includes(state);
-  el.srRepeat.hidden = state !== 'answer';
-  el.srSettings.hidden = !['start', 'ready'].includes(state);
+  el.btnHelp.setAttribute('aria-label', t('sr.help'));
+  el.btnSettings.setAttribute('aria-label', t('sr.settings'));
+  el.btnGallery.setAttribute('aria-label', t('sr.open'));
+  for (const b of el.modebar.children) b.textContent = t(`modes.${b.dataset.mode}.name`);
+
+  // The shutter: what one tap does right now.
+  const shutter = {
+    start: [t('start'), 'i-eye'],
+    ready: sensor ? [t('sr.cancel'), 'i-stop'] : [mode === 'ask' ? t('sr.takePhoto') : t(`modes.${mode}.name`), MODE_ICON[mode]],
+    listening: [t('sr.stop'), 'i-stop'],
+    thinking: [t('sr.wait'), null],
+    answer: [t('sr.newPhoto'), 'i-cam'],
+  }[state];
+  if (shutter) {
+    el.btnShutter.setAttribute('aria-label', shutter[0]);
+    setIcon(el.shutterIcon, el.btnShutter, shutter[1]);
+  }
+  el.btnShutter.setAttribute('aria-disabled', state === 'thinking' ? 'true' : 'false');
+
+  // The button on the right changes with the moment: repeat, ask more, or cancel.
+  const side = {
+    ready: lastAnswer ? [t('sr.repeat'), 'i-redo'] : null,
+    listening: [t('sr.cancel'), 'i-x'],
+    thinking: [t('sr.cancel'), 'i-x'],
+    answer: [t('sr.askAgain'), 'i-mic'],
+  }[state];
+  el.btnSide.hidden = !side;
+  if (side) {
+    el.btnSide.setAttribute('aria-label', side[0]);
+    setIcon(el.sideIcon, el.btnSide, side[1]);
+  }
+  el.btnGallery.hidden = !['ready', 'answer'].includes(state);
 }
 
 // ---------- gestures ----------
@@ -249,7 +271,6 @@ function bindGestures() {
     const dx = e.clientX - x0;
     const dy = e.clientY - y0;
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.4) return onSwipe(dx < 0 ? 1 : -1);
-    if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.4) return onSwipeUp();
     if (dy > 80 && Math.abs(dy) > Math.abs(dx) * 1.4) return onSwipeDown();
     rawTap();
   });
@@ -258,23 +279,46 @@ function bindGestures() {
   // Keyboard, switch access and screen readers send a click without pointer events.
   el.stage.addEventListener('click', (e) => e.detail === 0 && rawTap());
 
-  el.welcomeSr.addEventListener('click', () => {
+  el.srLink.addEventListener('click', () => {
     settings.srMode = true;
     save();
     el.body.classList.add('sr');
     begin();
   });
-  el.srMain.addEventListener('click', () => {
-    if (Date.now() - lastAction < TIMING.DEBOUNCE) return;
+  // Dock and top bar buttons do exactly what the gestures do.
+  el.btnShutter.addEventListener('click', () => {
+    if (state === 'thinking' || Date.now() - lastAction < TIMING.DEBOUNCE) return;
     lastAction = Date.now();
+    vibrate(20);
     onTap();
   });
-  el.srNew.addEventListener('click', onDoubleTap); // in ANSWER: ask more about this photo
-  el.srRepeat.addEventListener('click', onLongPress);
-  el.srSettings.addEventListener('click', openSettings);
-  el.srMode.addEventListener('click', () => changeMode(1));
-  el.srShare.addEventListener('click', shareAnswer);
-  el.srOpen.addEventListener('click', openPicker);
+  el.btnSide.addEventListener('click', () => {
+    if (state === 'answer') return listen(t('askNow'));
+    if (['listening', 'thinking'].includes(state)) return newPhoto();
+    if (state === 'ready') return onLongPress();
+  });
+  el.btnGallery.addEventListener('click', openPicker);
+  el.btnSettings.addEventListener('click', openSettings);
+  el.btnHelp.addEventListener('click', () => {
+    if (state === 'start') {
+      unlockVoice();
+      sounds.unlock();
+    }
+    sayHelp();
+  });
+  el.modebar.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mode]');
+    if (b && ['ready', 'answer'].includes(state) && b.dataset.mode !== mode) selectMode(b.dataset.mode);
+  });
+  // Arrow keys move between modes inside the mode strip (tab-list keyboard pattern).
+  el.modebar.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.stopPropagation();
+    e.preventDefault();
+    const rtl = document.documentElement.dir === 'rtl';
+    onSwipe((e.key === 'ArrowRight') !== rtl ? 1 : -1);
+    el.modebar.querySelector('[aria-selected="true"]')?.focus();
+  });
   el.fileInput.addEventListener('change', () => {
     const f = el.fileInput.files?.[0];
     el.fileInput.value = '';
@@ -346,7 +390,7 @@ function bindGestures() {
     else if (key === 'h' || e.key === '?') sayHelp();
     else if (e.key === 'ArrowRight') onSwipe(1);
     else if (e.key === 'ArrowLeft') onSwipe(-1);
-    else if (e.key === 'ArrowUp') onSwipeUp();
+
   });
 }
 
@@ -385,17 +429,17 @@ function onSwipe(dir) {
 }
 
 function changeMode(dir) {
-  mode = MODES[(MODES.indexOf(mode) + dir + MODES.length) % MODES.length];
+  selectMode(MODES[(MODES.indexOf(mode) + dir + MODES.length) % MODES.length]);
+}
+
+function selectMode(next) {
+  mode = next;
   settings.mode = mode;
   save();
   showMode();
   sounds.tap();
   vibrate(25);
   goReady();
-}
-
-function onSwipeUp() {
-  if (state === 'answer') shareAnswer();
 }
 
 function onSwipeDown() {
@@ -414,7 +458,7 @@ function sayHelp() {
   say(DESKTOP ? t('helpKeys') : t('helpTouch'), { display: state !== 'start' });
 }
 
-/** A picture from the gallery, a file, a paste, a drop, or shared from another app. */
+/** A picture from the gallery, a file, a paste or a drop. */
 async function loadPicture(file) {
   if (!file || !/^image\//.test(file.type)) {
     sounds.error();
@@ -481,19 +525,6 @@ async function sayColor() {
   say(words.charAt(0).toUpperCase() + words.slice(1) + '.');
 }
 
-// Must run straight from the gesture: phones only open the share sheet after a real touch.
-function shareAnswer() {
-  if (!lastAnswer) return;
-  if (!navigator.share) {
-    sounds.error();
-    return say(t('shareFail'), { display: false });
-  }
-  navigator
-    .share({ title: t('appName'), text: lastAnswer })
-    .then(() => say(t('shared'), { display: false }))
-    .catch(() => {});
-}
-
 async function onLongPress() {
   if (!['ready', 'answer'].includes(state)) return;
   const my = ++op;
@@ -508,10 +539,12 @@ async function onLongPress() {
 
 function stopSensors() {
   delete el.body.dataset.swatch;
+  const had = !!sensor;
   sensor?.stop();
   sensor = null;
   delete el.body.dataset.running;
   delete el.body.dataset.facing;
+  if (had) updateLabels();
 }
 
 function stopSensorsAndSay() {
@@ -698,6 +731,7 @@ function toggleLight() {
     },
   };
   el.body.dataset.running = 'light';
+  updateLabels();
   vibrate(40);
   speak(t('lightOn'));
   if (settings.srMode) announce(t('lightOn'));
@@ -749,6 +783,7 @@ async function toggleQibla() {
   let cancelled = false;
   sensor = { stop: () => (cancelled = true) };
   el.body.dataset.running = 'qibla';
+  updateLabels();
   say(t('qiblaStart'));
   try {
     const compass = await pending;
@@ -866,11 +901,6 @@ async function ask(question, my) {
   await say(answer);
   if (my !== op) return;
   await say(t('tapAgain'), { display: false });
-  if (my === op && !settings.shareHintShown && navigator.share) {
-    settings.shareHintShown = true;
-    save();
-    await say(t('shareHint'), { display: false });
-  }
 }
 
 async function runCommand(cmd, my) {
@@ -940,26 +970,12 @@ async function runCommand(cmd, my) {
       save();
       showMode();
       return goReady();
-    case 'share':
-      msg = t('shareHint');
-      break;
     case 'open':
       msg = t(DESKTOP ? 'openHintDesktop' : 'openHint');
       break;
     case 'help':
       msg = DESKTOP ? t('helpKeys') : t('helpTouch');
       break;
-    case 'time':
-      msg = t('timeIs', { time: timeText(settings.lang) });
-      break;
-    case 'date':
-      msg = t('dateIs', dateTexts(settings.lang));
-      break;
-    case 'battery': {
-      const b = await batteryInfo();
-      msg = b ? t('battery', { n: b.level, c: b.charging ? t('charging') : '' }) : t('noBattery');
-      break;
-    }
   }
   save();
   applyLook();
@@ -977,39 +993,24 @@ function changeLanguage() {
 
 // ---------- settings screen ----------
 
-const SETTING_ACTIONS = {
-  lang: () => {
-    changeLanguage();
-    return t('languageName');
-  },
-  speed: () => {
-    settings.rate = RATES[(RATES.indexOf(settings.rate) + 1) % RATES.length];
-    return t('settings.speed', { n: `${settings.rate}×` });
-  },
-  size: () => {
-    settings.textPt = SIZES[(SIZES.indexOf(settings.textPt) + 1) % SIZES.length];
-    return t('textSize', { n: settings.textPt });
-  },
-  theme: () => {
-    settings.theme = THEMES[(THEMES.indexOf(settings.theme) + 1) % THEMES.length];
-    return t(`themeNames.${settings.theme}`);
-  },
-  sr: () => {
-    settings.srMode = !settings.srMode;
-    el.body.classList.toggle('sr', settings.srMode);
-    return t('settings.sr', { v: t(settings.srMode ? 'settings.on' : 'settings.off') });
-  },
-};
-
 function renderSettings() {
-  const b = (k) => el.settings.querySelector(`[data-set="${k}"]`);
-  label(b('lang'), t('languageName'));
-  label(b('speed'), t('settings.speed', { n: `${settings.rate}×` }));
-  label(b('size'), t('settings.size', { n: settings.textPt }));
-  label(b('theme'), t(`themeNames.${settings.theme}`));
-  label(b('sr'), t('settings.sr', { v: t(settings.srMode ? 'settings.on' : 'settings.off') }));
-  label(b('done'), t('settings.done'));
-  label($('settings-title'), t('status.settings'));
+  $('settings-title').textContent = t('settings.title');
+  $('settings-done').textContent = t('settings.done');
+  $('lbl-lang').textContent = t('settings.language');
+  $('lbl-size').textContent = t('settings.textSize');
+  $('lbl-speed').textContent = t('settings.speechSpeed');
+  $('lbl-theme').textContent = t('settings.colours');
+  $('lbl-sr').textContent = t('settings.reader');
+  for (const b of el.settings.querySelectorAll('.seg button')) b.setAttribute('aria-checked', b.dataset.v === settings.lang ? 'true' : 'false');
+  for (const b of el.settings.querySelectorAll('.sw')) {
+    b.setAttribute('aria-checked', b.dataset.v === settings.theme ? 'true' : 'false');
+    b.setAttribute('aria-label', t(`themeNames.${b.dataset.v}`));
+  }
+  $('set-size').value = Math.max(0, SIZES.indexOf(settings.textPt));
+  $('out-size').textContent = settings.textPt;
+  $('set-speed').value = Math.max(0, RATES.indexOf(settings.rate));
+  $('out-speed').textContent = `${settings.rate}×`;
+  $('set-sr').setAttribute('aria-checked', settings.srMode ? 'true' : 'false');
 }
 
 function openSettings() {
@@ -1020,7 +1021,7 @@ function openSettings() {
   setState('settings');
   el.settings.hidden = false;
   renderSettings();
-  el.settings.querySelector('.row').focus();
+  el.settings.querySelector('.seg [aria-checked="true"]')?.focus();
   say(t('settings.open'), { display: false });
 }
 
@@ -1038,20 +1039,51 @@ function closeSettings() {
 }
 
 function bindSettings() {
-  el.settings.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-set]');
-    if (!btn) return;
-    vibrate(30);
+  // Each change is applied at once and spoken, so it can be used without looking.
+  const changed = (msg) => {
+    vibrate(20);
     sounds.tap();
-    const key = btn.dataset.set;
-    if (key === 'done') return closeSettings();
-    const msg = SETTING_ACTIONS[key]();
     save();
     applyLook();
     renderSettings();
     updateLabels();
     say(msg, { display: false });
+  };
+  el.settings.querySelector('.seg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-v]');
+    if (!b || b.dataset.v === settings.lang) return;
+    settings.lang = b.dataset.v;
+    setLang(settings.lang);
+    preloadPrompts();
+    changed(t('languageName'));
   });
+  el.settings.querySelector('.swatches').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    settings.theme = b.dataset.v;
+    changed(t(`themeNames.${settings.theme}`));
+  });
+  const size = $('set-size');
+  size.addEventListener('input', () => {
+    settings.textPt = SIZES[+size.value];
+    $('out-size').textContent = settings.textPt;
+    applyLook();
+  });
+  size.addEventListener('change', () => changed(t('textSize', { n: settings.textPt })));
+  const speed = $('set-speed');
+  speed.addEventListener('input', () => {
+    settings.rate = RATES[+speed.value];
+    $('out-speed').textContent = `${settings.rate}×`;
+  });
+  speed.addEventListener('change', () => changed(t('settings.speed', { n: `${settings.rate}×` })));
+  $('set-sr').addEventListener('click', () => {
+    settings.srMode = !settings.srMode;
+    el.body.classList.toggle('sr', settings.srMode);
+    changed(t('settings.sr', { v: t(settings.srMode ? 'settings.on' : 'settings.off') }));
+  });
+  $('settings-done').addEventListener('click', () => closeSettings());
+  // Tapping the dimmed area outside the sheet also closes it.
+  el.settings.addEventListener('click', (e) => e.target === el.settings && closeSettings());
 }
 
 // ---------- phone housekeeping ----------
@@ -1107,29 +1139,7 @@ function showStart() {
   show(pendingPicture ? t('sharedReceivedStart') : DESKTOP ? t('tapToStartDesktop') : t('tapToStart'));
 }
 
-// A photo shared into the app from WhatsApp, the gallery, etc. (arrives through the service worker).
-async function takeSharedPicture() {
-  if (!new URLSearchParams(location.search).has('shared')) return;
-  history.replaceState(null, '', '/');
-  try {
-    const cache = await caches.open('eyes-share');
-    const res = await cache.match('/shared-image');
-    await cache.delete('/shared-image'); // never keep it
-    if (!res) return;
-    const blob = await res.blob();
-    pendingPicture = new File([blob], 'shared', { type: blob.type || 'image/jpeg' });
-    if (state === 'start') show(t('sharedReceivedStart'));
-  } catch {}
-}
-
 // ---------- boot ----------
-
-// Keep the message sheet clear of the welcome button, however many lines it wraps to.
-new ResizeObserver(() => {
-  el.body.style.setProperty('--welcome-h', `${el.welcomeSr.offsetHeight || 88}px`);
-  const span = el.message.firstElementChild;
-  if (span && !paging) fit(span.textContent);
-}).observe(el.welcomeSr);
 
 if (new URLSearchParams(location.search).get('sr') === '1') settings.srMode = true;
 setLang(settings.lang);
@@ -1142,6 +1152,5 @@ initGlass({ video: el.video, photo: el.photo, body: el.body });
 el.body.classList.toggle('desktop', DESKTOP);
 checkServer();
 showStart();
-takeSharedPicture();
-// Offline app shell + "Share to Eyes for Everyone" from other apps.
+// Offline app shell: Light, Qibla, Colour and the app itself open without internet.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

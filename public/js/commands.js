@@ -15,11 +15,7 @@ const PHRASES = {
   light: ['light', 'light mode', 'ضوء', 'الضوء', 'نور', 'وضع الضوء', 'വെളിച്ചം'],
   qibla: ['qibla', 'qiblah', 'kibla', 'find qibla', 'قبلة', 'القبلة', 'اتجاه القبلة', 'وين القبلة', 'ഖിബ്‌ല', 'ഖിബ്ല'],
   ask: ['ask', 'ask mode', 'question', 'اسأل', 'سؤال', 'وضع السؤال', 'ചോദിക്കുക', 'ചോദ്യം'],
-  share: ['share', 'send', 'share it', 'شارك', 'ارسل', 'مشاركة', 'പങ്കിടുക', 'ഷെയർ'],
   color: ['color', 'colour', 'what color', 'what colour', 'which color', 'color mode', 'لون', 'اللون', 'ما اللون', 'وش اللون', 'നിറം', 'എന്ത് നിറം'],
-  time: ['time', 'what time', 'what time is it', 'the time', 'الوقت', 'كم الساعة', 'كم الساعه', 'الساعة', 'الساعه', 'സമയം', 'സമയം എത്രയായി', 'സമയം എത്ര'],
-  date: ['date', 'the date', 'what is the date', 'what date', 'today', 'التاريخ', 'تاريخ اليوم', 'كم التاريخ', 'തീയതി', 'ഇന്നത്തെ തീയതി'],
-  battery: ['battery', 'battery level', 'charge', 'البطارية', 'بطارية', 'كم الشحن', 'الشحن', 'ബാറ്ററി', 'ചാർജ്'],
   help: ['help', 'help me', 'what can i say', 'مساعدة', 'ساعدني', 'المساعدة', 'സഹായം', 'സഹായിക്കൂ'],
   open: ['open', 'open photo', 'open picture', 'open image', 'gallery', 'افتح صورة', 'افتح الصورة', 'المعرض', 'الاستوديو', 'ഗാലറി', 'ചിത്രം തുറക്കുക'],
 };

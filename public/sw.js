@@ -1,6 +1,5 @@
-// Service worker: lets the app open without internet (Light, Qibla, Color, time and date work offline)
-// and receives pictures shared from other apps ("Share → Eyes for Everyone").
-const CACHE = 'eyes-v3';
+// Service worker: lets the app open without internet (Light, Qibla and Color work offline).
+const CACHE = 'eyes-v4';
 const SHELL = [
   '/',
   '/css/app.css',
@@ -28,7 +27,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'eyes-share').map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -36,25 +35,6 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
-
-  // A picture shared from another app: keep it for a moment, then open the app.
-  // The app reads it and deletes it straight away.
-  if (e.request.method === 'POST' && url.pathname === '/share') {
-    e.respondWith(
-      (async () => {
-        try {
-          const form = await e.request.formData();
-          const file = form.getAll('image').find((f) => f && f.type?.startsWith('image/'));
-          if (file) {
-            const c = await caches.open('eyes-share');
-            await c.put('/shared-image', new Response(file, { headers: { 'content-type': file.type } }));
-          }
-        } catch {}
-        return Response.redirect('/?shared=1', 303);
-      })()
-    );
-    return;
-  }
 
   // Never cache the AI (photos, audio, answers stay private).
   if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
