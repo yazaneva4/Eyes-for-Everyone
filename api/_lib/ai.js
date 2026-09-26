@@ -335,6 +335,22 @@ export async function askAI({ image, mime, question, lang, history, provider }) 
 
 // ---------- streaming answers (words arrive while the AI is still writing) ----------
 
+// A model that has not sent its first words by then is treated as busy, so the next one gets a turn.
+const FIRST_WORDS_MS = { openrouter: 9000, gemini: 12000 };
+// Stop trying more free models after this long, so Gemini always has time to answer.
+const FREE_BUDGET_MS = 20000;
+
+/** A signal that fires if first() is not called within `ms`, or after `total` ms overall. */
+function watchdog(ms, total = 45000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(new Error('no first words in time')), ms);
+  return {
+    signal: AbortSignal.any ? AbortSignal.any([ctl.signal, AbortSignal.timeout(total)]) : ctl.signal,
+    first: () => clearTimeout(timer),
+    done: () => clearTimeout(timer),
+  };
+}
+
 /** Reads a server-sent-events body and calls onData(json) for every `data:` line. */
 async function readSSE(body, onData) {
   const reader = body.getReader();
@@ -367,7 +383,10 @@ async function geminiStream({ image, mime, text, system, reading }, emit) {
     const v3 = /gemini-3/.test(model);
     config.mediaResolution = reading ? 'MEDIA_RESOLUTION_HIGH' : v3 ? 'MEDIA_RESOLUTION_LOW' : 'MEDIA_RESOLUTION_MEDIUM';
     config.thinkingConfig = v3 ? { thinkingLevel: 'minimal' } : { thinkingBudget: 0 };
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
+    const dog = watchdog(FIRST_WORDS_MS.gemini);
+    let r;
+    try {
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': keys().gemini },
       body: JSON.stringify({
@@ -375,24 +394,39 @@ async function geminiStream({ image, mime, text, system, reading }, emit) {
         contents: [{ role: 'user', parts: [{ inlineData: { mimeType: mime, data: image } }, { text }] }],
         generationConfig: config,
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: dog.signal,
     });
+    } catch (e) {
+      dog.done();
+      lastErr = e;
+      continue;
+    }
     if (!r.ok) {
+      dog.done();
       lastErr = new Error(`Gemini ${model} ${r.status}: ${await readError(r)}`);
       if (r.status === 404) retired.add(model);
       continue; // quota, retired or overloaded: try the next model
     }
     let got = false;
-    await readSSE(r.body, (j) => {
-      const t = (j.candidates?.[0]?.content?.parts || [])
-        .filter((x) => !x.thought)
-        .map((x) => x.text || '')
-        .join('');
-      if (t) {
-        got = true;
-        emit(t);
-      }
-    });
+    try {
+      await readSSE(r.body, (j) => {
+        const t = (j.candidates?.[0]?.content?.parts || [])
+          .filter((x) => !x.thought)
+          .map((x) => x.text || '')
+          .join('');
+        if (t) {
+          if (!got) dog.first();
+          got = true;
+          emit(t);
+        }
+      });
+    } catch (e) {
+      dog.done();
+      if (got) return; // keep what was already said
+      lastErr = e;
+      continue;
+    }
+    dog.done();
     if (got) return;
     lastErr = new Error(`Gemini ${model} sent no text`);
   }
@@ -401,8 +435,13 @@ async function geminiStream({ image, mime, text, system, reading }, emit) {
 
 async function openrouterStream({ image, mime, text, system }, emit) {
   let lastErr;
+  const began = Date.now();
   for (const model of openrouterModels()) {
-    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    if (Date.now() - began > FREE_BUDGET_MS) break; // leave time for Gemini
+    const dog = watchdog(FIRST_WORDS_MS.openrouter);
+    let r;
+    try {
+      r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -426,9 +465,15 @@ async function openrouterStream({ image, mime, text, system }, emit) {
           },
         ],
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: dog.signal,
     });
+    } catch (e) {
+      dog.done();
+      lastErr = e;
+      continue; // no answer in time: try the next one
+    }
     if (!r.ok) {
+      dog.done();
       lastErr = new Error(`OpenRouter ${model} ${r.status}: ${await readError(r)}`);
       continue; // busy free model: try the next one
     }
@@ -440,6 +485,7 @@ async function openrouterStream({ image, mime, text, system }, emit) {
         if (j.error) throw Object.assign(new Error(`OpenRouter ${model}: ${j.error.message || 'error'}`), { fatal: true });
         const t = j.choices?.[0]?.delta?.content || '';
         if (!t) return;
+        dog.first();
         if (open) return emit(t);
         head += t;
         if (head.length < 24) return;
@@ -448,10 +494,12 @@ async function openrouterStream({ image, mime, text, system }, emit) {
         emit(head);
       });
     } catch (e) {
-      if (open) throw e; // already speaking this answer: stop here
+      dog.done();
+      if (open) return; // keep what was already said
       lastErr = e;
       continue;
     }
+    dog.done();
     if (!open && head.trim() && !junk(head)) {
       emit(head);
       open = true;
