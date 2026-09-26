@@ -11,16 +11,44 @@ export function langOf(code) {
   return LANGS[code] ? code : 'en';
 }
 
+// Pasted keys often carry a stray space, newline or quotes; strip them.
+const clean = (v) => String(v || '').trim().replace(/^["']|["']$/g, '').trim();
+
 function keys() {
   return {
-    gemini:
-      process.env.GEMINI_API_KEY ||
-      process.env.GOOGLE_API_KEY ||
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-      '',
-    openai: process.env.OPENAI_API_KEY || '',
-    elevenlabs: process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY || process.env.XI_API_KEY || '',
+    gemini: clean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY),
+    openai: clean(process.env.OPENAI_API_KEY),
+    elevenlabs: clean(process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY || process.env.XI_API_KEY),
   };
+}
+
+/**
+ * Asks each provider "is this key good, and does the model exist?" using free calls.
+ * Returns only HTTP status codes and a hint — never the key or the provider's message.
+ */
+export async function checkKeys() {
+  const k = keys();
+  const hint = (st) =>
+    ({ 200: 'ok', 400: 'bad request (check model name)', 401: 'key rejected', 403: 'key not allowed / no access', 404: 'model or voice not found', 429: 'out of credit or rate limited' })[st] ||
+    (st >= 500 ? 'provider is down' : 'unexpected');
+  const probe = async (name, url, headers) => {
+    if (!k[name]) return [name, { status: 0, hint: 'no key set' }];
+    try {
+      const r = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+      return [name, { status: r.status, hint: hint(r.status) }];
+    } catch {
+      return [name, { status: -1, hint: 'could not reach provider' }];
+    }
+  };
+  const gm = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const om = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+  const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
+  const out = await Promise.all([
+    probe('gemini', `https://generativelanguage.googleapis.com/v1beta/models/${gm}`, { 'x-goog-api-key': k.gemini }),
+    probe('openai', `https://api.openai.com/v1/models/${om}`, { authorization: `Bearer ${k.openai}` }),
+    probe('elevenlabs', `https://api.elevenlabs.io/v1/voices/${voice}`, { 'xi-api-key': k.elevenlabs }),
+  ]);
+  return Object.fromEntries(out);
 }
 
 export function available() {
