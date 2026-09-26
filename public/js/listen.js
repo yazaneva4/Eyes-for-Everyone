@@ -5,6 +5,8 @@ import { LOCALES } from './i18n.js';
 import { speakerMode } from './voice.js';
 
 const MAX_MS = 30000;
+const END_SILENCE_MS = 1200; // this much quiet after speech = finished
+const NOBODY_SPOKE_MS = 7000; // no speech at all within this time = no question
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let serverStt = true;
 
@@ -72,14 +74,41 @@ async function recordForServer(lang, mime, onAutoStop) {
   const chunks = [];
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const started = Date.now();
-  // Remember the loudest moment, so a silent recording is never sent (AI can "hear" words in silence).
+  // Listens to the loudness to know when you have finished speaking (like Siri), and remembers the
+  // loudest moment, so a silent recording is never sent (an AI can "hear" words in silence).
   let peak = 0;
-  const peakTimer = setInterval(() => (peak = Math.max(peak, meter.level())), 80);
+  let floor = null; // room noise, measured in the first moments
+  let heard = false;
+  let quietSince = 0;
+  let calm = 0;
+  const vad = setInterval(() => {
+    const lv = meter.level();
+    peak = Math.max(peak, lv);
+    const now = Date.now();
+    if (floor === null) {
+      if (now - started < 300) return void (calm = Math.max(calm, lv));
+      floor = calm;
+    }
+    const speech = Math.max(0.1, floor * 2.2);
+    if (lv > speech) {
+      heard = true;
+      quietSince = 0;
+    } else if (heard) {
+      quietSince ||= now;
+      if (now - quietSince > END_SILENCE_MS) {
+        clearInterval(vad);
+        onAutoStop?.(); // you stopped talking: answer now
+      }
+    } else if (now - started > NOBODY_SPOKE_MS) {
+      clearInterval(vad);
+      onAutoStop?.(); // nobody spoke: carry on without a question
+    }
+  }, 80);
   rec.start(250);
   const timer = setTimeout(() => onAutoStop?.(), MAX_MS);
   const release = () => {
     clearTimeout(timer);
-    clearInterval(peakTimer);
+    clearInterval(vad);
     meter.close();
     stream.getTracks().forEach((t) => t.stop());
     speakerMode(false); // back to the loudspeaker for the answer
@@ -121,7 +150,7 @@ function browserRecognition(lang, onAutoStop) {
   return new Promise((resolveStart, rejectStart) => {
     const rec = new SR();
     rec.lang = LOCALES[lang];
-    rec.continuous = true;
+    rec.continuous = false; // the browser ends by itself when you stop talking
     rec.interimResults = false;
     let text = '';
     let ended = false;
@@ -132,7 +161,8 @@ function browserRecognition(lang, onAutoStop) {
     rec.onerror = (e) => rejectStart(new Error(e.error || 'speech-error')); // ignored once started
     rec.onend = () => {
       ended = true;
-      onEnd?.();
+      if (onEnd) onEnd();
+      else onAutoStop?.(); // stopped talking: answer now
     };
     rec.onstart = () =>
       resolveStart({

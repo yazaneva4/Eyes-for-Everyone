@@ -3,8 +3,25 @@
 A phone web app for people with low vision. **The whole screen is one giant button.**
 Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 
+The app does two things:
+
+- **Describe:** tap anywhere to take a photo. The description **streams in and is read aloud while it is still being written**. Tap again for the next photo. Double-tap (or the mic button) to ask a question about the same photo: just speak, and the app **notices when you stop talking** and answers, like Siri. There is no stop button.
+- **Qibla:** choose Qibla at the bottom (or swipe). It **starts by itself**: a live, talking compass with the distance and direction to the Kaaba. Tap anywhere to hear the direction again.
+
 | Gesture | What happens |
 | --- | --- |
+| **Tap** (Describe) | Take a photo and hear what is in it. After an answer, tap again for the next photo. |
+| **Double-tap** (after an answer) | Ask a question about the same photo. |
+| **Tap** (Qibla) | Hear the current direction again. |
+| **Press and hold** | Repeat the last answer. |
+| **Hold 3 seconds** | Settings (or tap ⚙). |
+| **Swipe left / right** | Switch between Describe and Qibla. |
+| **Swipe down** | Open a picture from the gallery. |
+| **Drag the answer sheet** | Expand it for long answers, or shrink it to one line. |
+
+**Laptop / PC:** press **Space** to take a photo. The other keys are **A** ask about it, **R** repeat, **← / →** Describe or Qibla, **O** open a picture, **↑ / ↓** resize the answer, **S** settings and **H** help. You can also **drop or paste a picture** (for example a screenshot). On a laptop with no compass, Qibla gives the bearing from north, the direction and the distance.
+
+--- | --- |
 | **Tap** (READY) | Takes a photo (shutter sound + buzz). Too dark or blurry? It tells you and waits. |
 | **Tap** (LISTENING) | Stops recording and asks the AI. |
 | **Tap** (ANSWER) | Take the **next photo** straight away (same mode). |
@@ -20,21 +37,6 @@ The screen looks like a camera app. At the **bottom** is a strip of mode names, 
 **Laptop / PC:** press **Space** (or click anywhere) instead of tapping. The other keys are **A** ask more, **R** repeat, **← / →** change mode (or scroll sideways on a trackpad), **O** open a picture, **S** settings and **H** spoken help. You can also **drag a picture onto the page** or **paste** one (Ctrl/⌘+V), for example a screenshot. If the computer has no camera, the app says so and suggests dropping or pasting a picture instead.
 
 | Say *repeat · faster · slower · louder · change language · bigger text* | Voice commands while listening (English, Arabic, Malayalam). |
-
-### Modes
-
-| Mode | What one tap does |
-| --- | --- |
-| **Ask** | Takes a photo, then you ask a question out loud. |
-| **Read** | Takes a photo and reads all the printed text in it, top to bottom. No question needed. |
-| **Money** | Takes a photo and says each **Saudi riyal** note or coin and the total. |
-| **Color** | Says the colour of whatever is in the middle of the camera ("dark blue"). Useful for clothes. It uses no AI and no internet. |
-| **Light** | Starts a tone that rises with brightness, and speaks "dark / dim / bright". It uses no AI and no internet. Tap again to stop. |
-| **Qibla** | A talking compass: "turn left… turn right… you are facing the Qibla", with ticks and vibration. It uses GPS and the compass, and **the location never leaves the phone**. |
-
-While listening you can also just say *read*, *money*, *color*, *light*, *qibla*, *ask*, *open* or *help* («مساعدة», which speaks every gesture and command).
-
-The app also opens without internet once it has been used, and Light, Qibla and Color keep working.
 
 Taps while THINKING are ignored, and extra taps within 500 ms are ignored so accidental double touches do nothing.
 
@@ -56,7 +58,7 @@ Eyes-for-Everyone/
 │   ├── index.html            ← the skeleton of the one big screen.
 │   ├── css/app.css           ← the paint: big letters, strong colours, shiny glass and glowing animations.
 │   ├── js/app.js             ← the brain that decides what happens after every tap.
-│   ├── js/sensors.js         ← the light meter, Qibla compass and colour namer, which all work without the internet.
+│   ├── js/sensors.js         ← the Qibla compass: GPS + compass, works without the internet.
 │   ├── sw.js                 ← keeps a copy of the app so it opens offline.
 │   ├── js/glass.js           ← makes the glass as clear as possible but never too clear to read, and moves its shine.
 │   ├── js/camera.js          ← opens the camera, snaps the photo, and checks it is not too dark or blurry.

@@ -333,6 +333,172 @@ export async function askAI({ image, mime, question, lang, history, provider }) 
   throw lastErr;
 }
 
+// ---------- streaming answers (words arrive while the AI is still writing) ----------
+
+/** Reads a server-sent-events body and calls onData(json) for every `data:` line. */
+async function readSSE(body, onData) {
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try {
+        onData(JSON.parse(data));
+      } catch (e) {
+        if (e.fatal) throw e;
+      }
+    }
+  }
+}
+
+async function geminiStream({ image, mime, text, system, reading }, emit) {
+  let lastErr;
+  for (const model of geminiModels()) {
+    const config = { temperature: 0.2, maxOutputTokens: reading ? 800 : 300 };
+    const v3 = /gemini-3/.test(model);
+    config.mediaResolution = reading ? 'MEDIA_RESOLUTION_HIGH' : v3 ? 'MEDIA_RESOLUTION_LOW' : 'MEDIA_RESOLUTION_MEDIUM';
+    config.thinkingConfig = v3 ? { thinkingLevel: 'minimal' } : { thinkingBudget: 0 };
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': keys().gemini },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [{ inlineData: { mimeType: mime, data: image } }, { text }] }],
+        generationConfig: config,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!r.ok) {
+      lastErr = new Error(`Gemini ${model} ${r.status}: ${await readError(r)}`);
+      if (r.status === 404) retired.add(model);
+      continue; // quota, retired or overloaded: try the next model
+    }
+    let got = false;
+    await readSSE(r.body, (j) => {
+      const t = (j.candidates?.[0]?.content?.parts || [])
+        .filter((x) => !x.thought)
+        .map((x) => x.text || '')
+        .join('');
+      if (t) {
+        got = true;
+        emit(t);
+      }
+    });
+    if (got) return;
+    lastErr = new Error(`Gemini ${model} sent no text`);
+  }
+  throw lastErr || new Error('No Gemini model available');
+}
+
+async function openrouterStream({ image, mime, text, system }, emit) {
+  let lastErr;
+  for (const model of openrouterModels()) {
+    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${keys().openrouter}`,
+        'HTTP-Referer': process.env.SITE_URL || 'https://eyesforeveryone.vercel.app',
+        'X-Title': 'Eyes for Everyone',
+      },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        max_tokens: 1500,
+        temperature: 0.2,
+        ...(/qwen/i.test(model) ? { reasoning: { enabled: false } } : {}),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `${system}\n\n---\n\nQuestion: ${text}` },
+              { type: 'image_url', image_url: { url: `data:${mime};base64,${image}` } },
+            ],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!r.ok) {
+      lastErr = new Error(`OpenRouter ${model} ${r.status}: ${await readError(r)}`);
+      continue; // busy free model: try the next one
+    }
+    // Hold back the first few words to make sure this is a real answer, not a classifier label.
+    let head = '';
+    let open = false;
+    try {
+      await readSSE(r.body, (j) => {
+        if (j.error) throw Object.assign(new Error(`OpenRouter ${model}: ${j.error.message || 'error'}`), { fatal: true });
+        const t = j.choices?.[0]?.delta?.content || '';
+        if (!t) return;
+        if (open) return emit(t);
+        head += t;
+        if (head.length < 24) return;
+        if (junk(head)) throw Object.assign(new Error(`OpenRouter ${model} returned a non-answer`), { fatal: true });
+        open = true;
+        emit(head);
+      });
+    } catch (e) {
+      if (open) throw e; // already speaking this answer: stop here
+      lastErr = e;
+      continue;
+    }
+    if (!open && head.trim() && !junk(head)) {
+      emit(head);
+      open = true;
+    }
+    if (open) return;
+    lastErr = new Error(`OpenRouter ${model} sent no text`);
+  }
+  throw lastErr || new Error('No free OpenRouter model available');
+}
+
+const streamers = { gemini: geminiStream, openrouter: openrouterStream };
+
+/**
+ * Like askAI, but calls write(text) with each piece of the answer as it arrives.
+ * Falls back to the next provider only if nothing has been written yet.
+ */
+export async function askAIStream({ image, mime, question, lang, history, provider, write }) {
+  if (process.env.MOCK_AI === '1' && !order().length) {
+    const demo = 'Demo mode. No AI key is set. I see a photo. Add a Gemini or OpenRouter key to get real answers.';
+    for (const word of demo.split(/(?<= )/)) {
+      await new Promise((r) => setTimeout(r, 70));
+      write(word);
+    }
+    return { provider: 'mock' };
+  }
+  const system = systemPrompt(lang);
+  const text = userText(question, history);
+  const reading = wantsReading(question);
+  const providers = order(provider);
+  if (!providers.length) throw Object.assign(new Error('No AI key configured'), { status: 503 });
+  let lastErr;
+  for (const p of providers) {
+    let wrote = false;
+    try {
+      await streamers[p]({ image, mime, text, system, reading }, (chunk) => {
+        wrote = true;
+        write(chunk);
+      });
+      if (wrote) return { provider: p };
+    } catch (e) {
+      lastErr = e;
+      if (wrote) return { provider: p, partial: true };
+    }
+  }
+  throw lastErr;
+}
+
 // ---------- speech to text ----------
 
 const EXT = { 'audio/webm': 'webm', 'audio/mp4': 'mp4', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/mpeg': 'mp3', 'audio/aac': 'aac' };

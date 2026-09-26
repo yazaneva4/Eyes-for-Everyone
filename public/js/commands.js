@@ -10,12 +10,8 @@ const PHRASES = {
   smaller: ['smaller text', 'smaller', 'text smaller', 'صغر الخط', 'خط اصغر', 'تصغير الخط', 'ചെറിയ അക്ഷരം', 'അക്ഷരം ചെറുതാക്കുക'],
   theme: ['change theme', 'change colors', 'change colours', 'theme', 'غير الالوان', 'نمط الالوان', 'തീം മാറ്റുക'],
   settings: ['settings', 'open settings', 'الاعدادات', 'افتح الاعدادات', 'ക്രമീകരണങ്ങൾ'],
-  read: ['read', 'read it', 'read this', 'read text', 'read the text', 'اقرأ', 'اقرا', 'اقرأ النص', 'اقرأ هذا', 'വായിക്കുക', 'വായിക്കൂ'],
-  money: ['money', 'count money', 'count the money', 'how much', 'riyal', 'riyals', 'فلوس', 'عملة', 'العملة', 'ريال', 'كم المبلغ', 'كم هذا', 'عد الفلوس', 'പണം', 'എത്ര റിയാൽ', 'പണം എണ്ണുക'],
-  light: ['light', 'light mode', 'ضوء', 'الضوء', 'نور', 'وضع الضوء', 'വെളിച്ചം'],
+  describe: ['describe', 'describe it', 'what is this', 'what do you see', 'وصف', 'صف', 'ماذا ترى', 'ما هذا', 'വിവരിക്കുക', 'ഇതെന്താണ്'],
   qibla: ['qibla', 'qiblah', 'kibla', 'find qibla', 'قبلة', 'القبلة', 'اتجاه القبلة', 'وين القبلة', 'ഖിബ്‌ല', 'ഖിബ്ല'],
-  ask: ['ask', 'ask mode', 'question', 'اسأل', 'سؤال', 'وضع السؤال', 'ചോദിക്കുക', 'ചോദ്യം'],
-  color: ['color', 'colour', 'what color', 'what colour', 'which color', 'color mode', 'لون', 'اللون', 'ما اللون', 'وش اللون', 'നിറം', 'എന്ത് നിറം'],
   help: ['help', 'help me', 'what can i say', 'مساعدة', 'ساعدني', 'المساعدة', 'സഹായം', 'സഹായിക്കൂ'],
   open: ['open', 'open photo', 'open picture', 'open image', 'gallery', 'افتح صورة', 'افتح الصورة', 'المعرض', 'الاستوديو', 'ഗാലറി', 'ചിത്രം തുറക്കുക'],
 };

@@ -216,3 +216,71 @@ export async function speak(text, { lang = settings.lang, onSentence } = {}) {
     }
   }
 }
+
+/**
+ * Speak an answer while it is still arriving (real-time).
+ * push(text) adds words as they come; each finished sentence starts playing at once
+ * (its ElevenLabs audio is fetched the moment the sentence is complete).
+ * end() says the rest; `finished` resolves when everything has been spoken or it was stopped.
+ */
+export function speakStream({ lang = settings.lang, onSentence } = {}) {
+  stopSpeaking();
+  speakerMode(false);
+  const my = token;
+  const useServer = serverVoice === 'always' || (serverVoice === 'fallback' && !voiceFor(lang));
+  const queue = [];
+  let buf = '';
+  let ended = false;
+  let wake = null;
+  let index = 0;
+  const enqueue = (sentence) => {
+    const s = sentence.trim();
+    if (!s) return;
+    queue.push({ s, url: useServer && !settings.srMode ? fetchServerAudio(s, lang).catch(() => null) : null });
+    wake?.();
+  };
+  // A sentence is finished when its full stop (or ? ! ؟ ।) is followed by a space.
+  const cut = () => {
+    let m;
+    while ((m = /[.!?؟।]+["'”’)\]]*\s+/.exec(buf))) {
+      enqueue(buf.slice(0, m.index + m[0].length));
+      buf = buf.slice(m.index + m[0].length);
+    }
+  };
+  const finished = (async () => {
+    for (;;) {
+      if (my !== token) return;
+      if (queue.length) {
+        const { s, url } = queue.shift();
+        onSentence?.(index++, s);
+        if (settings.srMode) continue; // the screen reader reads the text instead
+        if (useServer) {
+          const u = await url;
+          if (my !== token) return;
+          const played = u ? await playUrl(u, my) : false;
+          if (!played && my === token) await speakBrowser(s, lang, my);
+        } else {
+          await speakBrowser(s, lang, my);
+        }
+      } else if (ended) {
+        return;
+      } else {
+        await new Promise((r) => (wake = r));
+        wake = null;
+      }
+    }
+  })();
+  return {
+    push(text) {
+      buf += text;
+      cut();
+    },
+    end() {
+      ended = true;
+      enqueue(buf);
+      buf = '';
+      wake?.();
+    },
+    finished,
+  };
+}
