@@ -65,7 +65,7 @@ Eyes-for-Everyone/
    OPENROUTER_API_KEY=your-openrouter-key
    ELEVENLABS_API_KEY=your-elevenlabs-key
    ```
-   - **Gemini or OpenRouter** (at least one) answers questions about the photo. OpenRouter uses free models only (Gemma 4 by default).
+   - **Gemini or OpenRouter** (at least one) answers questions about the photo. OpenRouter uses free models only (Qwen 3.8 27B by default, with Gemma 4 as backup).
    - **ElevenLabs** (recommended) gives the app one natural voice in English, Arabic *and* Malayalam, and the best speech-to-text (Scribe).
      Without it, the phone's own voice is used and Gemini does the speech-to-text.
    With no keys at all, the app still runs in *demo mode* with a pretend answer.
@@ -158,7 +158,7 @@ It is built to feel like a modern camera app, not a remote control:
 | `AI_PROVIDER` | `gemini` | Which AI answers first (`gemini` or `openrouter`). The other one is the automatic fallback. |
 | `GEMINI_MODEL` | *(cheapest available)* | By default the app tries `gemini-2.5-flash-lite` ($0.10/$0.40), then `gemini-3.1-flash-lite` ($0.25/$1.50), then `gemini-3.5-flash-lite` ($0.30/$2.50), and remembers any that Google has retired. Set this to force one model. |
 | `GEMINI_FALLBACK_MODEL` | *(none)* | Optional second Gemini model. By default the free OpenRouter models are the backup instead. |
-| `OPENROUTER_MODEL` | `google/gemma-4-31b-it:free` | **Only free models are used**: an ID must end in `:free`, and safety-filter models are blocked. Backups: `google/gemma-4-26b-a4b-it:free`, `qwen/qwen3.8-27b:free`. |
+| `OPENROUTER_MODEL` | `qwen/qwen3.8-27b:free` | **Only free models are used**: an ID must end in `:free`, and safety-filter models are blocked. Backups: `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`. |
 | `ELEVENLABS_VOICE_ID` | `JBFqnCBsd6RMkjVDRZzb` | Any voice ID from your ElevenLabs voice library. |
 | `ELEVENLABS_TTS_MODEL` | `eleven_flash_v2_5` for English and Arabic, `eleven_v3` for Malayalam | Flash is fastest but has no Malayalam. Override one language with `ELEVENLABS_TTS_MODEL_ML` (or `_EN`, `_AR`). |
 | `ELEVENLABS_STT_MODEL` | `scribe_v2` | ElevenLabs speech-to-text, tried first, with Gemini as the backup. |

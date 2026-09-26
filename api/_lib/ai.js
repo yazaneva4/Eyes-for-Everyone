@@ -234,7 +234,7 @@ async function geminiOnce(model, parts, system, { maxTokens = 300, allowEmpty = 
 // OpenRouter, free models only: any id not ending in ":free" is ignored, so it can never cost money.
 // A fixed list of free models that can see images and write normal answers. Not the random
 // "openrouter/free" router: it sometimes picks safety classifiers that reply "User Safety: safe".
-const FREE_VISION = ['google/gemma-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free', 'qwen/qwen3.8-27b:free'];
+const FREE_VISION = ['qwen/qwen3.8-27b:free', 'google/gemma-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free'];
 const usable = (m) => /:free$/.test(m) && !/safety|guard|moderat/i.test(m);
 const openrouterModels = () =>
   [process.env.OPENROUTER_MODEL, process.env.OPENROUTER_FALLBACK_MODEL, ...FREE_VISION]
@@ -257,7 +257,14 @@ async function openrouterChat(messages, maxTokens) {
           'HTTP-Referer': process.env.SITE_URL || 'https://eyesforeveryone.vercel.app',
           'X-Title': 'Eyes for Everyone',
         },
-        body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.2 }),
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: maxTokens,
+          temperature: 0.2,
+          // Qwen can "think" before answering; off = faster replies.
+          ...(/qwen/i.test(model) ? { reasoning: { enabled: false } } : {}),
+        }),
         signal: AbortSignal.timeout(25000),
       });
       if (!r.ok) throw new Error(`OpenRouter ${model} ${r.status}: ${await readError(r)}`);
