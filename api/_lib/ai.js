@@ -109,11 +109,11 @@ async function readError(r) {
   }
 }
 
-async function geminiGenerate(parts, system, maxTokens = 8192) {
+async function geminiGenerate(parts, system, maxTokens = 8192, allowEmpty = false) {
   // Google is sometimes briefly overloaded (429/5xx); try once more before giving up.
   for (let attempt = 0; ; attempt++) {
     try {
-      return await geminiOnce(parts, system, maxTokens);
+      return await geminiOnce(parts, system, maxTokens, allowEmpty);
     } catch (e) {
       if (attempt >= 1 || !e.retry) throw e;
       await new Promise((r) => setTimeout(r, 700));
@@ -121,7 +121,7 @@ async function geminiGenerate(parts, system, maxTokens = 8192) {
   }
 }
 
-async function geminiOnce(parts, system, maxTokens) {
+async function geminiOnce(parts, system, maxTokens, allowEmpty) {
   const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -143,7 +143,7 @@ async function geminiOnce(parts, system, maxTokens) {
     .map((p) => p.text || '')
     .join('')
     .trim();
-  if (!text) throw Object.assign(new Error(`Gemini empty (${j.candidates?.[0]?.finishReason || 'no candidate'})`), { retry: true });
+  if (!text && !allowEmpty) throw Object.assign(new Error(`Gemini empty (${j.candidates?.[0]?.finishReason || 'no candidate'})`), { retry: true });
   return text;
 }
 
@@ -252,7 +252,8 @@ async function geminiTranscribe(buf, mime, lang) {
       },
     ],
     null,
-    1024
+    8192,
+    true // silence is a valid, empty transcript
   );
   return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
 }
