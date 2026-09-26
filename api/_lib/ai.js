@@ -61,9 +61,39 @@ export async function checkKeys() {
     }
     return ['gemini', last];
   };
+  // OpenRouter: one real request per free model with a tiny 2×2 image (free models cost nothing).
+  const openrouterReal = async () => {
+    if (!k.openrouter) return ['openrouter', { status: 0, hint: 'no key set' }];
+    const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANBAEBqFsHXwAAAABJRU5ErkJggg==';
+    const models = {};
+    for (const m of openrouterModels()) {
+      try {
+        const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${k.openrouter}` },
+          body: JSON.stringify({
+            model: m,
+            max_tokens: 20,
+            messages: [{ role: 'user', content: [{ type: 'text', text: 'Reply with one word: what colour is this?' }, { type: 'image_url', image_url: { url: `data:image/png;base64,${tiny}` } }] }],
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
+        let code;
+        try {
+          const j = await r.json();
+          code = j.error?.code ?? j.error?.metadata?.raw?.slice?.(0, 0);
+        } catch {}
+        models[m] = { status: r.status, hint: hint(r.status), ...(code !== undefined && r.status !== 200 ? { code } : {}) };
+      } catch {
+        models[m] = { status: -1, hint: 'could not reach provider' };
+      }
+    }
+    const ok = Object.values(models).some((x) => x.status === 200);
+    return ['openrouter', { status: ok ? 200 : Object.values(models)[0]?.status ?? -1, hint: ok ? 'ok' : 'no free model worked', models }];
+  };
   const out = await Promise.all([
     geminiReal(),
-    probe('openrouter', 'https://openrouter.ai/api/v1/key', { authorization: `Bearer ${k.openrouter}` }),
+    openrouterReal(),
     probe('elevenlabs', `https://api.elevenlabs.io/v1/voices/${voice}`, { 'xi-api-key': k.elevenlabs }),
   ]);
   return Object.fromEntries(out);
