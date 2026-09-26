@@ -102,3 +102,97 @@ export async function startQibla(onTurn, demo = false) {
   }
   return { stop };
 }
+
+// ---------- colour (no AI) ----------
+
+/** Average colour of the middle of a picture (where the camera is pointing). */
+export function centerColor(canvas) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const size = Math.round(Math.min(w, h) * 0.3);
+  const c = pctx.canvas;
+  c.width = 24;
+  c.height = 24;
+  pctx.drawImage(canvas, (w - size) / 2, (h - size) / 2, size, size, 0, 0, 24, 24);
+  const px = pctx.getImageData(0, 0, 24, 24).data;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    r += px[i];
+    g += px[i + 1];
+    b += px[i + 2];
+  }
+  const n = px.length / 4;
+  c.width = 48;
+  c.height = 36;
+  return [r / n, g / n, b / n].map(Math.round);
+}
+
+/** Everyday colour name: { key, shade } where shade is 'dark', 'light' or ''. */
+export function nameColor([r, g, b]) {
+  const R = r / 255;
+  const G = g / 255;
+  const B = b / 255;
+  const max = Math.max(R, G, B);
+  const min = Math.min(R, G, B);
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (d) {
+    if (max === R) h = 60 * (((G - B) / d) % 6);
+    else if (max === G) h = 60 * ((B - R) / d + 2);
+    else h = 60 * ((R - G) / d + 4);
+  }
+  h = (h + 360) % 360;
+  if (s < 0.14 || d < 0.07) {
+    if (l < 0.13) return { key: 'black', shade: '' };
+    if (l < 0.35) return { key: 'darkGray', shade: '' };
+    if (l < 0.65) return { key: 'gray', shade: '' };
+    if (l < 0.87) return { key: 'lightGray', shade: '' };
+    return { key: 'white', shade: '' };
+  }
+  let key;
+  if (h < 15 || h >= 345) key = 'red';
+  else if (h < 40) key = 'orange';
+  else if (h < 66) key = 'yellow';
+  else if (h < 165) key = 'green';
+  else if (h < 195) key = 'turquoise';
+  else if (h < 255) key = 'blue';
+  else if (h < 290) key = 'purple';
+  else key = 'pink';
+  // Dark orange/red is what people call brown; pale orange/yellow is beige.
+  if ((key === 'orange' || key === 'red' || key === 'yellow') && l < 0.38 && s < 0.75) return { key: 'brown', shade: l < 0.18 ? 'dark' : '' };
+  if ((key === 'orange' || key === 'yellow') && l > 0.72 && s < 0.6) return { key: 'beige', shade: '' };
+  const shade = l < 0.25 ? 'dark' : l > 0.75 ? 'light' : '';
+  return { key, shade };
+}
+
+// ---------- time, Hijri date, battery (no internet) ----------
+
+const LOC = { en: 'en-GB', ar: 'ar-SA', ml: 'ml-IN' };
+
+export function timeText(lang) {
+  const loc = lang === 'en' ? 'en-US' : LOC[lang]; // 12-hour clock reads more naturally in English
+  return new Intl.DateTimeFormat(`${loc}-u-ca-gregory`, { hour: 'numeric', minute: '2-digit' }).format(new Date());
+}
+
+/** { g: Gregorian date, h: Hijri (Umm al-Qura, the calendar used in Saudi Arabia) } */
+export function dateTexts(lang) {
+  const now = new Date();
+  const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+  const g = new Intl.DateTimeFormat(`${LOC[lang]}-u-ca-gregory`, opts).format(now);
+  const h = new Intl.DateTimeFormat(`${LOC[lang]}-u-ca-islamic-umalqura`, { day: 'numeric', month: 'long', year: 'numeric' }).format(now);
+  return { g, h };
+}
+
+/** { level: 0–100, charging } or null when the browser does not tell (iPhone, Firefox). */
+export async function batteryInfo() {
+  try {
+    const b = await navigator.getBattery?.();
+    return b ? { level: Math.round(b.level * 100), charging: b.charging } : null;
+  } catch {
+    return null;
+  }
+}

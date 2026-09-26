@@ -1,7 +1,8 @@
 // The brain of the app: a small state machine driven by one giant tap target.
 //   start → ready ⇄ listening → thinking → answer → listening …
 //   double-tap: new photo · long-press: repeat answer · hold 3 s: settings
-//   swipe left/right: change mode (Ask, Read, Money, Light, Qibla) · swipe up: share the answer
+//   swipe left/right: change mode (Ask, Read, Money, Color, Light, Qibla) · swipe up: share · swipe down: open a picture
+//   laptop/PC: Space = tap, arrows = modes, N/R/O/S/H keys, drop or paste a picture
 import { t, setLang, LANG_ORDER } from './i18n.js';
 import { settings, save, applyLook, RATES, SIZES, THEMES, step } from './settings.js';
 import { sounds, vibrate, liveTone } from './sounds.js';
@@ -10,10 +11,12 @@ import { startCamera, stopCamera, capture, toJpegBase64, checkQuality, cameraRun
 import { startListening, useServerStt } from './listen.js';
 import { matchCommand } from './commands.js';
 import { initGlass } from './glass.js';
-import { startLight, lightWord, startQibla } from './sensors.js';
+import { startLight, lightWord, startQibla, centerColor, nameColor, timeText, dateTexts, batteryInfo } from './sensors.js';
 
 const TIMING = { LONG: 700, SETTINGS: 3000, DOUBLE: 320, DEBOUNCE: 500, ASK_TIMEOUT: 35000 };
-const MODES = ['ask', 'read', 'money', 'light', 'qibla'];
+const MODES = ['ask', 'read', 'money', 'color', 'light', 'qibla'];
+// Laptop or PC with a mouse or trackpad: speak keyboard hints instead of touch gestures.
+const DESKTOP = matchMedia('(hover: hover) and (pointer: fine)').matches;
 const DEMO = new URLSearchParams(location.search).has('demo');
 
 const $ = (id) => document.getElementById(id);
@@ -33,6 +36,8 @@ const el = {
   srMode: $('sr-mode'),
   srShare: $('sr-share'),
   modeIcon: $('mode-icon'),
+  srOpen: $('sr-open'),
+  fileInput: $('file-input'),
   settings: $('settings'),
   wordmark: $('wordmark'),
   liveStatus: $('live-status'),
@@ -52,6 +57,7 @@ let returnState = 'ready';
 let wakeLock = null;
 let mode = MODES.includes(settings.mode) ? settings.mode : 'ask';
 let sensor = null; // the running light meter or Qibla compass
+let pendingPicture = null; // a picture shared into the app before the first tap
 
 // ---------- screen ----------
 
@@ -120,10 +126,11 @@ function flash() {
 }
 
 function readyPrompt() {
-  return mode === 'ask' ? t('ready') : t(`modes.${mode}.hint`);
+  if (mode !== 'ask') return t(`modes.${mode}.hint`);
+  return DESKTOP ? t('readyDesktop') : t('ready');
 }
 
-const MODE_ICON = { ask: 'i-cam', read: 'i-text', money: 'i-money', light: 'i-sun', qibla: 'i-kaaba' };
+const MODE_ICON = { ask: 'i-cam', read: 'i-text', money: 'i-money', color: 'i-palette', light: 'i-sun', qibla: 'i-kaaba' };
 function showMode() {
   el.body.dataset.mode = mode;
   el.modeIcon.setAttribute('href', `#${MODE_ICON[mode]}`);
@@ -159,6 +166,9 @@ function updateLabels() {
   label(el.srSettings, t('sr.settings'));
   label(el.srMode, t('sr.mode', { m: t(`modes.${mode}.name`) }));
   label(el.srShare, t('sr.share'));
+  label(el.srOpen, t('sr.open'));
+  $('drop-text').textContent = t('dropHere');
+  el.srOpen.hidden = state !== 'ready';
   el.srMode.hidden = state !== 'ready';
   el.srShare.hidden = state !== 'answer' || !lastAnswer;
   el.srNew.hidden = !['listening', 'thinking', 'answer'].includes(state);
@@ -239,6 +249,7 @@ function bindGestures() {
     const dy = e.clientY - y0;
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.4) return onSwipe(dx < 0 ? 1 : -1);
     if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.4) return onSwipeUp();
+    if (dy > 80 && Math.abs(dy) > Math.abs(dx) * 1.4) return onSwipeDown();
     rawTap();
   });
   el.stage.addEventListener('pointercancel', clear);
@@ -262,15 +273,74 @@ function bindGestures() {
   el.srSettings.addEventListener('click', openSettings);
   el.srMode.addEventListener('click', () => changeMode(1));
   el.srShare.addEventListener('click', shareAnswer);
+  el.srOpen.addEventListener('click', openPicker);
+  el.fileInput.addEventListener('change', () => {
+    const f = el.fileInput.files?.[0];
+    el.fileInput.value = '';
+    if (f) loadPicture(f);
+  });
+
+  // Trackpad / mouse: a sideways scroll changes mode.
+  let wheelX = 0;
+  let wheelAt = 0;
+  el.stage.addEventListener(
+    'wheel',
+    (e) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      wheelX += e.deltaX;
+      if (Math.abs(wheelX) > 120 && Date.now() - wheelAt > 700) {
+        wheelAt = Date.now();
+        onSwipe(wheelX > 0 ? 1 : -1);
+        wheelX = 0;
+      }
+    },
+    { passive: true }
+  );
+
+  // Laptop/PC: drop a picture anywhere, or paste one (Ctrl/⌘+V).
+  let dragDepth = 0;
+  addEventListener('dragenter', (e) => {
+    if (![...(e.dataTransfer?.types || [])].includes('Files')) return;
+    dragDepth++;
+    el.body.classList.add('dropping');
+  });
+  addEventListener('dragleave', () => {
+    if (--dragDepth <= 0) {
+      dragDepth = 0;
+      el.body.classList.remove('dropping');
+    }
+  });
+  addEventListener('dragover', (e) => e.preventDefault());
+  addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    el.body.classList.remove('dropping');
+    const f = [...(e.dataTransfer?.files || [])][0];
+    if (f) loadPicture(f);
+  });
+  addEventListener('paste', (e) => {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+    if (item) loadPicture(item.getAsFile());
+  });
 
   document.addEventListener('keydown', (e) => {
     if (state === 'settings') {
       if (e.key === 'Escape') closeSettings();
       return;
     }
-    if (e.key === 'n' || e.key === 'Escape') onDoubleTap();
-    else if (e.key === 'r') onLongPress();
-    else if (e.key === 's') openSettings();
+    if (e.metaKey || e.ctrlKey || e.altKey) return; // leave browser shortcuts (like paste) alone
+    const onButton = e.target instanceof HTMLButtonElement;
+    // Space or Enter anywhere = the big tap (a focused button already clicks itself).
+    if ((e.key === ' ' || e.key === 'Enter') && !onButton) {
+      e.preventDefault();
+      return rawTap();
+    }
+    const key = e.key.toLowerCase();
+    if (key === 'n' || e.key === 'Escape') onDoubleTap();
+    else if (key === 'r') onLongPress();
+    else if (key === 's') openSettings();
+    else if (key === 'o') openPicker();
+    else if (key === 'h' || e.key === '?') sayHelp();
     else if (e.key === 'ArrowRight') onSwipe(1);
     else if (e.key === 'ArrowLeft') onSwipe(-1);
     else if (e.key === 'ArrowUp') onSwipeUp();
@@ -284,6 +354,7 @@ function onTap() {
     case 'start':
       return begin();
     case 'ready':
+      if (mode === 'color') return sayColor();
       if (mode === 'light') return toggleLight();
       if (mode === 'qibla') return toggleQibla();
       return takePhoto();
@@ -323,6 +394,89 @@ function onSwipeUp() {
   if (state === 'answer') shareAnswer();
 }
 
+function onSwipeDown() {
+  if (['ready', 'answer'].includes(state)) openPicker();
+}
+
+// Opens the phone's gallery / the computer's file picker. Must run straight from a touch, click or key.
+function openPicker() {
+  if (['thinking', 'settings'].includes(state)) return;
+  el.fileInput.click();
+}
+
+function sayHelp() {
+  if (['thinking', 'settings', 'listening'].includes(state)) return;
+  ++op;
+  say(DESKTOP ? t('helpKeys') : t('helpTouch'), { display: state !== 'start' });
+}
+
+/** A picture from the gallery, a file, a paste, a drop, or shared from another app. */
+async function loadPicture(file) {
+  if (!file || !/^image\//.test(file.type)) {
+    sounds.error();
+    return say(t('badFile'), { display: state !== 'start' });
+  }
+  // Sound needs one tap first; keep the picture until then.
+  if (state === 'start') {
+    pendingPicture = file;
+    return show(t('sharedReceivedStart'));
+  }
+  if (['thinking', 'settings'].includes(state)) return;
+  cancelWork();
+  const my = ++op;
+  let canvas;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+    canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close?.();
+  } catch {
+    if (my !== op) return;
+    sounds.error();
+    return say(t('badFile'));
+  }
+  if (my !== op) return;
+  sounds.shutter();
+  vibrate([30, 40, 30]);
+  usePhoto(canvas, my, t('photoReceived'));
+}
+
+// ---------- colour (no AI, no internet) ----------
+
+async function sayColor() {
+  const my = ++op;
+  stopSpeaking();
+  if (!cameraRunning()) {
+    try {
+      await startCamera(el.video);
+      el.body.dataset.camera = 'on';
+    } catch {
+      sounds.error();
+      return say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
+    }
+  }
+  let canvas;
+  try {
+    canvas = capture(el.video, 480);
+  } catch {
+    sounds.error();
+    return say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
+  }
+  if (my !== op) return;
+  const rgb = centerColor(canvas);
+  const { key, shade } = nameColor(rgb);
+  const name = t(`colors.${key}`);
+  const words = shade ? t(shade === 'dark' ? 'colorDark' : 'colorLight', { c: name }) : name;
+  el.body.style.setProperty('--swatch', `rgb(${rgb.join(' ')})`);
+  el.body.dataset.swatch = 'on';
+  sounds.tap();
+  vibrate(40);
+  say(words.charAt(0).toUpperCase() + words.slice(1) + '.');
+}
+
 // Must run straight from the gesture: phones only open the share sheet after a real touch.
 function shareAnswer() {
   if (!lastAnswer) return;
@@ -349,6 +503,7 @@ async function onLongPress() {
 }
 
 function stopSensors() {
+  delete el.body.dataset.swatch;
   sensor?.stop();
   sensor = null;
   delete el.body.dataset.running;
@@ -378,6 +533,13 @@ async function begin() {
   unlockVoice();
   sounds.unlock();
   requestWakeLock();
+  if (pendingPicture) {
+    const f = pendingPicture;
+    pendingPicture = null;
+    setState('ready');
+    if (!settings.disclaimerShown) await showDisclaimer();
+    return loadPicture(f);
+  }
   goReady();
 }
 
@@ -404,7 +566,7 @@ async function goReady(prefix) {
     .catch(async () => {
       if (my !== op) return;
       sounds.error();
-      await say(t('noCamera'));
+      await say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
     });
   let prompt = prefix ? `${prefix} ${readyPrompt()}` : readyPrompt();
   if (!settings.swipeHintShown) {
@@ -455,6 +617,10 @@ async function takePhoto() {
   }
   if (my !== op) return;
   blurStrikes = 0;
+  usePhoto(canvas, my, t('photoTaken'));
+}
+
+function usePhoto(canvas, my, intro) {
   photo = { base64: toJpegBase64(canvas), url: canvas.toDataURL('image/jpeg', 0.7) };
   history = [];
   el.photo.src = photo.url;
@@ -463,7 +629,7 @@ async function takePhoto() {
   // Read and Money modes need no question: go straight to the answer.
   if (mode === 'read') return ask(t('readQuestion'), my);
   if (mode === 'money') return ask(t('moneyQuestion'), my);
-  listen(t('photoTaken'));
+  listen(intro);
 }
 
 // ---------- light meter (no AI, no internet) ----------
@@ -739,6 +905,7 @@ async function runCommand(cmd, my) {
     case 'light':
     case 'qibla':
     case 'ask':
+    case 'color':
       mode = cmd;
       settings.mode = mode;
       save();
@@ -747,6 +914,23 @@ async function runCommand(cmd, my) {
     case 'share':
       msg = t('shareHint');
       break;
+    case 'open':
+      msg = t(DESKTOP ? 'openHintDesktop' : 'openHint');
+      break;
+    case 'help':
+      msg = DESKTOP ? t('helpKeys') : t('helpTouch');
+      break;
+    case 'time':
+      msg = t('timeIs', { time: timeText(settings.lang) });
+      break;
+    case 'date':
+      msg = t('dateIs', dateTexts(settings.lang));
+      break;
+    case 'battery': {
+      const b = await batteryInfo();
+      msg = b ? t('battery', { n: b.level, c: b.charging ? t('charging') : '' }) : t('noBattery');
+      break;
+    }
   }
   save();
   applyLook();
@@ -891,7 +1075,22 @@ function preloadPrompts() {
 function showStart() {
   ++op;
   setState('start');
-  show(t('tapToStart'));
+  show(pendingPicture ? t('sharedReceivedStart') : DESKTOP ? t('tapToStartDesktop') : t('tapToStart'));
+}
+
+// A photo shared into the app from WhatsApp, the gallery, etc. (arrives through the service worker).
+async function takeSharedPicture() {
+  if (!new URLSearchParams(location.search).has('shared')) return;
+  history.replaceState(null, '', '/');
+  try {
+    const cache = await caches.open('eyes-share');
+    const res = await cache.match('/shared-image');
+    await cache.delete('/shared-image'); // never keep it
+    if (!res) return;
+    const blob = await res.blob();
+    pendingPicture = new File([blob], 'shared', { type: blob.type || 'image/jpeg' });
+    if (state === 'start') show(t('sharedReceivedStart'));
+  } catch {}
 }
 
 // ---------- boot ----------
@@ -911,5 +1110,9 @@ el.body.classList.toggle('sr', settings.srMode);
 bindGestures();
 bindSettings();
 initGlass({ video: el.video, photo: el.photo, body: el.body });
+el.body.classList.toggle('desktop', DESKTOP);
 checkServer();
 showStart();
+takeSharedPicture();
+// Offline app shell + "Share to Eyes for Everyone" from other apps.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

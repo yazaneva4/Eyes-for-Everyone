@@ -407,7 +407,8 @@ body[data-state='answer'] .orb {
 }
 body[data-state='start'] .brand,
 body[data-state='ready']:not([data-mode='light']):not([data-mode='qibla']) .viewfinder,
-body[data-state='ready']:not([data-mode='light']):not([data-mode='qibla']) .shutter,
+body[data-state='ready']:not([data-mode='light']):not([data-mode='qibla']):not([data-mode='color']) .shutter,
+body[data-state='ready'][data-mode='color'] .target,
 body[data-state='ready'][data-mode='light'] .lightmeter,
 body[data-state='ready'][data-mode='qibla'] .compass,
 body[data-state='ready'] .dots,
@@ -997,6 +998,7 @@ body.sr[data-state='thinking'] #sr-main {
   .pill {
     grid-column: 1;
     grid-row: 1;
+    justify-self: center;
   }
   .focus {
     grid-column: 1;
@@ -1068,4 +1070,127 @@ body.sr[data-state='thinking'] #sr-main {
   color: #ffe14d;
   font: 800 32pt system-ui, sans-serif;
   text-align: center;
+}
+
+/* ---------- colour mode: a target in the middle, filled with the colour it found ---------- */
+
+.target {
+  width: min(34vmin, 150px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 6px solid var(--fg);
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 0 2px rgb(0 0 0 / 0.5),
+    0 10px 40px rgb(0 0 0 / 0.45);
+}
+.target .swatch {
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--swatch, transparent);
+  border: 3px solid rgb(255 255 255 / 0.85);
+  box-shadow: 0 0 0 2px rgb(0 0 0 / 0.6);
+  transform: scale(0.2);
+  opacity: 0;
+  transition:
+    transform 0.5s var(--spring),
+    opacity 0.2s;
+}
+body[data-swatch='on'] .target .swatch {
+  transform: none;
+  opacity: 1;
+}
+
+/* ---------- drop a picture (laptop/PC) ---------- */
+
+#drop {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: none;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+body.dropping #drop {
+  display: grid;
+}
+#drop .glass {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 40px 56px;
+  border-radius: 40px;
+  font-size: 40pt;
+  text-align: center;
+  outline: 5px dashed var(--fg);
+  outline-offset: -18px;
+}
+#drop .ic {
+  font-size: 1.6em;
+}
+
+/* ---------- laptop / PC ---------- */
+
+body.desktop #stage {
+  cursor: pointer;
+}
+@media (min-width: 1000px) and (orientation: landscape) {
+  .hud {
+    max-width: 1500px;
+    margin-inline: auto;
+    grid-template-columns: minmax(0, 1fr) minmax(460px, 700px);
+    column-gap: 48px;
+    padding: max(32px, env(safe-area-inset-top)) 48px 40px;
+  }
+  .sheet {
+    align-self: center;
+    padding: 20px 40px 36px;
+  }
+  #message {
+    max-height: calc(100dvh - 180px);
+  }
+  .shutter,
+  .target {
+    width: 170px;
+  }
+  .voice,
+  .think {
+    width: 280px;
+  }
+  .lightmeter,
+  .compass {
+    width: 300px;
+  }
+  .viewfinder {
+    margin: 2% 6%;
+  }
+  .settings-sheet {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  #settings {
+    align-items: center;
+  }
+  body.sr .hud {
+    right: 50%;
+    margin: 0;
+    max-width: none;
+  }
+  #welcome-sr {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(700px, calc(100% - 96px));
+  }
+  :root[dir='rtl'] #welcome-sr {
+    transform: translateX(50%);
+    left: auto;
+    right: 50%;
+  }
 }

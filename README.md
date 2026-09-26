@@ -13,6 +13,11 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 | **Hold 3 seconds** | Settings (language, speed, text size, theme, screen reader mode). |
 | **Swipe left / right** | Change mode: **Ask**, **Read**, **Money**, **Light**, **Qibla**. |
 | **Swipe up** (on an answer) | Share the answer with family (WhatsApp, Messages…). |
+| **Swipe down** | Open a picture from the gallery. |
+
+**Laptop / PC:** press **Space** (or click anywhere) instead of tapping. The other keys are **N** new photo, **R** repeat, **← / →** change mode (or scroll sideways on a trackpad), **↑** share, **O** open a picture, **S** settings and **H** spoken help. You can also **drag a picture onto the page** or **paste** one (Ctrl/⌘+V), for example a screenshot. If the computer has no camera, the app says so and suggests dropping or pasting a picture instead.
+
+**Share into the app:** once installed on Android (browser menu → *Install app*), *Eyes for Everyone* appears in the phone's **Share** menu, so a photo from WhatsApp or the gallery can be sent straight to it. The picture is held only until the app opens, then deleted.
 | Say *repeat · faster · slower · louder · change language · bigger text* | Voice commands while listening (English, Arabic, Malayalam). |
 
 ### Modes
@@ -22,10 +27,17 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 | **Ask** | Takes a photo, then you ask a question out loud. |
 | **Read** | Takes a photo and reads all the printed text in it, top to bottom. No question needed. |
 | **Money** | Takes a photo and says each **Saudi riyal** note or coin and the total. |
+| **Color** | Says the colour of whatever is in the middle of the camera ("dark blue"). Useful for clothes. It uses no AI and no internet. |
 | **Light** | Starts a tone that rises with brightness, and speaks "dark / dim / bright". It uses no AI and no internet. Tap again to stop. |
 | **Qibla** | A talking compass: "turn left… turn right… you are facing the Qibla", with ticks and vibration. It uses GPS and the compass, and **the location never leaves the phone**. |
 
-While listening you can also just say *read*, *money*, *light*, *qibla*, *ask* or *share*.
+While listening you can also just say *read*, *money*, *color*, *light*, *qibla*, *ask*, *share* or *open*. These need no photo and work offline:
+- *time* / «الوقت»
+- *date* / «التاريخ», which gives the **Hijri (Umm al-Qura) date and the Gregorian date**
+- *battery* / «البطارية»
+- *help* / «مساعدة», which speaks every gesture and command
+
+The app also opens without internet once it has been used, and Light, Qibla, Color, time and date keep working.
 
 Taps while THINKING are ignored, and extra taps within 500 ms are ignored so accidental double touches do nothing.
 
@@ -47,7 +59,8 @@ Eyes-for-Everyone/
 │   ├── index.html            ← the skeleton of the one big screen.
 │   ├── css/app.css           ← the paint: big letters, strong colours, shiny glass and glowing animations.
 │   ├── js/app.js             ← the brain that decides what happens after every tap.
-│   ├── js/sensors.js         ← the light meter and the Qibla compass, which work without the internet.
+│   ├── js/sensors.js         ← the light meter, Qibla compass, colour namer, time, Hijri date and battery, which all work without the internet.
+│   ├── sw.js                 ← keeps a copy of the app so it opens offline, and catches pictures shared from other apps.
 │   ├── js/glass.js           ← makes the glass as clear as possible but never too clear to read, and moves its shine.
 │   ├── js/camera.js          ← opens the camera, snaps the photo, and checks it is not too dark or blurry.
 │   ├── js/listen.js          ← records your question with the microphone.
@@ -58,7 +71,7 @@ Eyes-for-Everyone/
 │   ├── js/settings.js        ← remembers your language, speed, text size and colours on your phone.
 │   ├── about.html + about.css ← an Arabic-first page about the app, for journalists and visitors (/about).
 │   ├── manifest.webmanifest  ← lets you add the app to your home screen like a real app.
-│   ├── icons/icon.svg        ← the app's eye picture.
+│   ├── icons/                ← the app's eye picture (SVG, plus PNGs for installing on phones).
 │   └── test/                 ← the secret grown-up page at /test
 │       ├── index.html        ← the test page layout.
 │       ├── test.js           ← runs many photos through the AI and lets you mark Correct, Partly or Wrong.
