@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+.cert/
+.vercel/
+node_modules/
+.DS_Store
+test-photos/
+.claude/

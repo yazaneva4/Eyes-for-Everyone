@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="yellow">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Take a photo, ask a question out loud, hear the answer. A helper for people with low vision." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <title>Eyes for Everyone</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@500;800&family=Noto+Sans+Arabic:wght@500;800&family=Noto+Sans+Malayalam:wght@500;800&display=swap"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+    <script type="module" src="/js/app.js"></script>
+  </head>
+  <body data-state="start" data-camera="off" data-photo="off">
+    <!-- Background: live camera, the frozen photo, or soft moving light -->
+    <div id="scene" aria-hidden="true">
+      <div class="aurora"><span></span><span></span><span></span></div>
+      <video id="video" playsinline muted autoplay></video>
+      <img id="photo" alt="" />
+      <div class="veil"></div>
+    </div>
+    <div id="flash" aria-hidden="true"></div>
+
+    <!-- What you see: the big status word and the big message -->
+    <div class="hud">
+      <div class="pill glass" aria-hidden="true">
+        <span class="orb"></span><span id="status-word">START</span>
+      </div>
+      <div class="card glass"><div id="message"></div></div>
+    </div>
+
+    <!-- The whole screen is this one button -->
+    <button id="stage" type="button" aria-label="Tap anywhere to start"></button>
+
+    <button id="welcome-sr" class="big glass" type="button">Screen reader mode</button>
+
+    <!-- Screen reader mode: a few very large buttons instead of gestures -->
+    <div id="sr-panel">
+      <button id="sr-main" class="big glass" type="button">Start</button>
+      <div class="sr-row">
+        <button id="sr-new" class="big glass" type="button" hidden>New photo</button>
+        <button id="sr-repeat" class="big glass" type="button" hidden>Repeat answer</button>
+        <button id="sr-settings" class="big glass" type="button" hidden>Settings</button>
+      </div>
+    </div>
+
+    <div id="settings" role="dialog" aria-modal="true" aria-label="Settings" hidden>
+      <button type="button" class="big glass" data-set="lang"></button>
+      <button type="button" class="big glass" data-set="speed"></button>
+      <button type="button" class="big glass" data-set="size"></button>
+      <button type="button" class="big glass" data-set="theme"></button>
+      <button type="button" class="big glass" data-set="sr"></button>
+      <button type="button" class="big glass" data-set="tutorial"></button>
+      <button type="button" class="big glass done" data-set="done"></button>
+    </div>
+
+    <!-- Screen readers announce these when they change -->
+    <div id="live-status" class="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
+    <div id="live-message" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <noscript><p class="noscript">Eyes for Everyone needs JavaScript turned on.</p></noscript>
+  </body>
+</html>
