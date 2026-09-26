@@ -2,6 +2,7 @@
 // Main path: MediaRecorder → /api/transcribe (works well for Arabic and Malayalam).
 // Fallback: the browser's own speech recognition when the server cannot transcribe.
 import { LOCALES } from './i18n.js';
+import { speakerMode } from './voice.js';
 
 const MAX_MS = 30000;
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -62,6 +63,7 @@ function makeMeter(stream) {
 }
 
 async function recordForServer(lang, mime, onAutoStop) {
+  speakerMode(true);
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
@@ -80,6 +82,7 @@ async function recordForServer(lang, mime, onAutoStop) {
     clearInterval(peakTimer);
     meter.close();
     stream.getTracks().forEach((t) => t.stop());
+    speakerMode(false); // back to the loudspeaker for the answer
   };
   const stopped = () =>
     new Promise((resolve) => {

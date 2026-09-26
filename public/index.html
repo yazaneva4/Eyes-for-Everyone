@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/css/app.css" />
     <script type="module" src="/js/app.js"></script>
   </head>
-  <body data-state="start" data-camera="off" data-photo="off">
+  <body data-state="start" data-camera="off" data-photo="off" data-sheet="auto">
     <svg class="sprite" width="0" height="0" aria-hidden="true">
       <defs>
         <!-- Bends what is behind the glass a little, like thick liquid glass (Chromium only) -->
@@ -84,9 +84,12 @@
         <div class="target"><span class="swatch"></span></div>
         <div class="lightmeter"><span class="glow"></span><span class="core"><svg class="ic"><use href="#i-sun" /></svg></span></div>
         <div class="compass">
-          <span class="ring"></span>
-          <span class="needle"><svg class="ic"><use href="#i-arrow" /></svg></span>
-          <span class="kaaba"><svg class="ic"><use href="#i-kaaba" /></svg></span>
+          <span class="pointer"></span>
+          <div class="rose">
+            <span class="ticks"></span>
+            <b class="cardinal n">N</b><b class="cardinal e">E</b><b class="cardinal s">S</b><b class="cardinal w">W</b>
+            <span class="qibla-mark"><svg class="ic"><use href="#i-kaaba" /></svg></span>
+          </div>
         </div>
         <div class="voice">
           <span class="ring r3"></span><span class="ring r2"></span><span class="ring r1"></span>
@@ -96,6 +99,7 @@
       </div>
 
       <div class="sheet glass">
+        <button id="grabber" class="grabber" type="button" aria-label="Expand answer"><span aria-hidden="true"></span></button>
         <div id="message"></div>
       </div>
     </div>

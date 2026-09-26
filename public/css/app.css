@@ -327,7 +327,7 @@ body.recording .edge {
 .hud {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 6;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -448,47 +448,103 @@ body:not([data-running='light']) .lightmeter .glow {
   --light: 0.2;
 }
 
-/* Qibla compass: the needle points where to turn; it glows when you face the Qibla */
-.compass .ring {
+/* Qibla compass: the rose turns with the phone; the Kaaba sits at its true bearing;
+   the pointer at the top is where the phone is facing. Map style (north up) without a compass. */
+.compass .pointer {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  margin-left: -11px;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 18px solid var(--fg);
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.5));
+  z-index: 1;
+}
+.compass .rose {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 4px solid var(--fg);
-  opacity: 0.5;
-  box-shadow: inset 0 0 30px -10px var(--fg);
-}
-.compass .needle {
-  position: absolute;
-  inset: 8%;
-  display: grid;
-  justify-items: center;
-  align-items: start;
-  font-size: min(16vmin, 72px);
-  transform: rotate(var(--qibla, 0deg));
-  transition: transform 0.15s linear;
-  filter: drop-shadow(0 0 12px var(--fg));
-}
-.compass .needle .ic {
-  fill: var(--fg);
-  stroke: none;
-}
-.compass .kaaba {
-  font-size: min(14vmin, 60px);
-  opacity: 0.55;
-}
-body[data-facing='yes'] .compass .ring {
-  opacity: 1;
-  border-width: 8px;
+  background: rgb(var(--tint) / 0.55);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
   box-shadow:
-    0 0 50px var(--fg),
-    inset 0 0 40px var(--fg);
+    inset 0 0 0 3px color-mix(in srgb, var(--fg) 55%, transparent),
+    inset 0 1px 1px var(--rim-hi),
+    0 20px 50px -18px var(--shadow);
+  transform: rotate(calc(var(--heading, 0deg) * -1));
+  transition: transform 0.12s linear;
 }
-body[data-facing='yes'] .compass .kaaba {
+.compass .ticks {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -1deg, color-mix(in srgb, var(--fg) 60%, transparent) 0 2deg, transparent 2deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 78%, #000 79%);
+  mask: radial-gradient(circle, transparent 78%, #000 79%);
+}
+.compass .cardinal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 16pt;
+  font-weight: 800;
+  line-height: 1;
+  --r: calc(min(52vmin, 240px) / 2 - 72px);
+  transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--r) * -1)) rotate(calc(var(--a) * -1));
+  font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+}
+.compass .n {
+  --a: 0deg;
+  color: #ff5c5c;
+}
+.compass .e {
+  --a: 90deg;
+}
+.compass .s {
+  --a: 180deg;
+}
+.compass .w {
+  --a: 270deg;
+}
+.compass .qibla-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 34px;
+  --r: calc(min(52vmin, 240px) / 2 - 38px);
+  transform: translate(-50%, -50%) rotate(var(--target, 0deg)) translateY(calc(var(--r) * -1)) rotate(calc(var(--target, 0deg) * -1 + var(--heading, 0deg)));
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  box-shadow: 0 0 24px -4px var(--fg);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+body:is([data-running='qibla'], [data-running='qibla-map']) .compass .qibla-mark {
   opacity: 1;
+}
+body[data-facing='yes'] .compass .rose {
+  box-shadow:
+    inset 0 0 0 6px var(--fg),
+    0 0 60px var(--fg);
+}
+body[data-facing='yes'] .compass .qibla-mark {
   animation: breathe 1s ease-in-out infinite;
 }
-body:not([data-running='qibla']) .compass .needle {
-  opacity: 0.35;
+@media (min-width: 1000px) and (orientation: landscape) {
+  .compass .cardinal {
+    --r: 78px;
+  }
+  .compass .qibla-mark {
+    --r: 112px;
+  }
 }
 
 /* Start: logo and name */
@@ -660,12 +716,85 @@ body:not(.recording) .voice .ring {
 
 .sheet {
   flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  pointer-events: auto;
+  touch-action: none; /* vertical drags resize the sheet instead of scrolling the page */
   border-radius: var(--r-lg);
   animation: sheet-in 0.7s var(--spring);
   padding: 14px clamp(20px, 5vw, 34px) clamp(22px, 4vmin, 32px);
   transition: box-shadow 0.3s;
 }
+/* The handle: a real button (tap to resize) and the place to drag from */
+.grabber {
+  flex: none;
+  align-self: center;
+  width: 64px;
+  height: 22px;
+  margin: -8px 0 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  touch-action: none;
+}
+.grabber span {
+  width: 40px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--fg);
+  opacity: 0.45;
+  transition:
+    opacity 0.2s,
+    width 0.3s var(--spring);
+}
+.grabber:hover span,
+body.dragging .grabber span {
+  opacity: 0.9;
+  width: 52px;
+}
+.grabber:focus-visible {
+  outline: 3px solid var(--fg);
+  outline-offset: 2px;
+  border-radius: 99px;
+}
+body:not([data-state='answer']) .grabber {
+  visibility: hidden;
+}
+body.dragging,
+body.dragging * {
+  cursor: grabbing !important;
+}
+body.dragging #message > span {
+  animation: none;
+}
+
+/* Three sizes: peek (one line, photo visible) · auto · full (fills the space, scrolls) */
+body[data-sheet='full'] .sheet {
+  flex: 1 1 auto;
+}
+body[data-sheet='full'] #message {
+  flex: 1;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+}
+body[data-sheet='peek'] #message {
+  max-height: 1.35em;
+  -webkit-mask-image: linear-gradient(90deg, #000 70%, transparent);
+  mask-image: linear-gradient(90deg, #000 70%, transparent);
+}
+body[data-sheet='peek'] #message > span {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 #message {
   max-height: 60dvh;
   overflow: hidden;
@@ -830,6 +959,17 @@ body[data-state='settings'] .dock {
 }
 .modebar::-webkit-scrollbar {
   display: none;
+}
+/* The strip scrolls, so its glass rim is drawn with a shadow that stays put */
+.modebar.glass::before,
+.modebar.glass::after {
+  display: none;
+}
+.modebar.glass {
+  box-shadow:
+    inset 0 1px 1px var(--rim-hi),
+    inset 0 0 0 0.5px var(--rim-lo),
+    0 12px 30px -14px var(--shadow);
 }
 .modebar button {
   flex: none;

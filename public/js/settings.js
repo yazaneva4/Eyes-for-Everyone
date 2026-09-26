@@ -9,7 +9,7 @@ export const THEMES = ['yellow', 'white', 'light'];
 const defaults = () => ({
   lang: detectLang(),
   rate: 1,
-  volume: 0.8,
+  volume: 1,
   textPt: 24,
   theme: 'yellow',
   srMode: false,
@@ -26,6 +26,13 @@ function load() {
 
 export const settings = load();
 // Text became smaller by default; move people from the old 40pt default once.
+if (!settings.volumeV2) {
+  if (settings.volume === 0.8) settings.volume = 1;
+  settings.volumeV2 = true;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(settings));
+  } catch {}
+}
 if (!settings.sizeV2) {
   if (settings.textPt === 40) settings.textPt = 24;
   settings.sizeV2 = true;

@@ -139,23 +139,38 @@ export function preload(texts, lang) {
   texts.forEach((t) => splitSentences(t).forEach((s) => fetchServerAudio(s, lang).catch(() => {})));
 }
 
+/**
+ * iPhone Safari moves sound to the quiet call earpiece after the microphone is used.
+ * Telling it we are a "playback" app again sends speech back to the loudspeaker.
+ */
+export function speakerMode(recording) {
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = recording ? 'play-and-record' : 'playback';
+  } catch {}
+}
+
+/** Plays one clip. Resolves true when it played, false if the phone refused it. */
 function playUrl(url, my) {
   return new Promise((resolve) => {
     let done = false;
-    const finish = () => {
+    let started = false;
+    const finish = (ok) => {
       if (done) return;
       done = true;
       clearInterval(watch);
       audio.onended = audio.onerror = null;
-      resolve();
+      resolve(ok);
     };
-    const watch = setInterval(() => my !== token && (audio.pause(), finish()), 100);
-    audio.onended = finish;
-    audio.onerror = finish;
+    const watch = setInterval(() => my !== token && (audio.pause(), finish(true)), 100);
+    audio.onended = () => finish(true);
+    audio.onerror = () => finish(started);
     audio.src = url;
     audio.playbackRate = settings.rate;
-    audio.volume = settings.volume;
-    audio.play().catch(finish);
+    audio.volume = Math.min(1, settings.volume);
+    audio
+      .play()
+      .then(() => (started = true))
+      .catch(() => finish(false));
   });
 }
 
@@ -177,6 +192,7 @@ function srWait(text, my) {
  */
 export async function speak(text, { lang = settings.lang, onSentence } = {}) {
   stopSpeaking();
+  speakerMode(false);
   const my = token;
   const parts = splitSentences(text);
   if (settings.srMode) {
@@ -192,8 +208,9 @@ export async function speak(text, { lang = settings.lang, onSentence } = {}) {
     if (useServer) {
       const url = await urls[i];
       if (my !== token) return;
-      if (url) await playUrl(url, my);
-      else await speakBrowser(parts[i], lang, my);
+      // If the clip is missing or the phone blocks it, say it with the phone's own voice instead.
+      const played = url ? await playUrl(url, my) : false;
+      if (!played && my === token) await speakBrowser(parts[i], lang, my);
     } else {
       await speakBrowser(parts[i], lang, my);
     }

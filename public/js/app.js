@@ -12,7 +12,7 @@ import { startCamera, stopCamera, capture, toJpegBase64, checkQuality, cameraRun
 import { startListening, useServerStt } from './listen.js';
 import { matchCommand } from './commands.js';
 import { initGlass } from './glass.js';
-import { startLight, lightWord, startQibla, centerColor, nameColor } from './sensors.js';
+import { startLight, lightWord, startQibla, compassPoint, centerColor, nameColor } from './sensors.js';
 
 const TIMING = { LONG: 700, SETTINGS: 3000, DOUBLE: 320, DEBOUNCE: 500, ASK_TIMEOUT: 35000 };
 const MIN_PT = 16;
@@ -66,6 +66,7 @@ let pendingPicture = null; // a picture dropped on the page before the first tap
 function setState(s) {
   state = s;
   el.body.dataset.state = s;
+  if (s !== 'answer' && el.body.dataset.sheet !== 'auto') el.body.dataset.sheet = 'auto';
   morph(pill, () => (el.statusWord.textContent = t(`status.${s}`)));
   el.liveStatus.textContent = t(`status.${s}`);
   if (s !== 'start') vibrate(40);
@@ -87,6 +88,9 @@ function morph(box, change) {
   });
 }
 const sheet = document.querySelector('.sheet');
+const grabber = document.getElementById('grabber');
+const SHEET_SIZES = ['peek', 'auto', 'full'];
+let currentText = '';
 const pill = document.querySelector('.pill');
 
 const overflows = (inner) => inner.offsetHeight > el.message.clientHeight + 1 || inner.scrollWidth > el.message.clientWidth + 1;
@@ -120,6 +124,17 @@ function show(text) {
 }
 
 function layoutText(text) {
+  currentText = text;
+  // Peek and full show the text at the chosen size as it is (full scrolls; peek shows one line).
+  if (el.body.dataset.sheet !== 'auto') {
+    paging = false;
+    el.message.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = text;
+    el.message.append(span);
+    el.message.style.fontSize = `${settings.textPt}pt`;
+    return;
+  }
   paging = !fit(text);
   // Too long even at the smallest size: show one sentence at a time, in step with the voice,
   // all at the same size so the text does not jump around.
@@ -138,7 +153,8 @@ function announce(text) {
 async function say(text, { display = true } = {}) {
   if (display) show(text);
   else if (settings.srMode) announce(text);
-  await speak(text, { onSentence: paging && display ? (i, s) => i >= 0 && fit(s, pagePt) : undefined });
+  // Sentence-by-sentence paging only while the sheet is its normal size (checked as each sentence starts).
+  await speak(text, { onSentence: display ? (i, s) => paging && el.body.dataset.sheet === 'auto' && i >= 0 && fit(s, pagePt) : undefined });
 }
 
 function flash() {
@@ -217,6 +233,27 @@ function updateLabels() {
     setIcon(el.sideIcon, el.btnSide, side[1]);
   }
   el.btnGallery.hidden = !['ready', 'answer'].includes(state);
+  const size = el.body.dataset.sheet;
+  grabber.setAttribute('aria-label', t(size === 'auto' ? 'sheet.expand' : size === 'full' ? 'sheet.shrink' : 'sheet.restore'));
+  grabber.setAttribute('aria-expanded', size === 'full' ? 'true' : 'false');
+}
+
+/** Resize the answer sheet to peek / auto / full, morphing from wherever it is now. */
+function setSheet(size) {
+  if (!SHEET_SIZES.includes(size)) return;
+  morph(sheet, () => {
+    sheet.style.height = '';
+    el.body.dataset.sheet = size;
+    if (currentText) layoutText(currentText);
+  });
+  vibrate(15);
+  updateLabels();
+}
+
+function stepSheet(dir) {
+  if (state !== 'answer') return;
+  const i = SHEET_SIZES.indexOf(el.body.dataset.sheet) + dir;
+  if (i >= 0 && i < SHEET_SIZES.length) setSheet(SHEET_SIZES[i]);
 }
 
 // ---------- gestures ----------
@@ -253,20 +290,47 @@ function bindGestures() {
   let settingsTimer;
   let x0 = 0;
   let y0 = 0;
+  // Sheet dragging
+  let dragging = false;
+  let canDrag = false;
+  let h0 = 0;
+  let vy = 0;
+  let lastY = 0;
+  let lastT = 0;
   const clear = () => {
     clearTimeout(longTimer);
     clearTimeout(settingsTimer);
     down = false;
     el.body.classList.remove('pressing');
   };
-  el.stage.addEventListener('pointerdown', (e) => {
+  const hud = document.querySelector('.hud');
+  const maxSheet = () => {
+    const cs = getComputedStyle(hud);
+    return hud.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  };
+
+  const onDown = (e) => {
     if (!e.isPrimary) return;
     sounds.unlock();
+    // On the sheet: drag it (only an answer can be resized). In full size the text itself scrolls,
+    // so there the sheet is dragged by its handle only.
+    canDrag =
+      e.currentTarget === sheet &&
+      state === 'answer' &&
+      (el.body.dataset.sheet !== 'full' || e.target.closest('.grabber') || e.clientY - sheet.getBoundingClientRect().top < 48);
+    if (e.currentTarget === sheet) {
+      try {
+        sheet.setPointerCapture(e.pointerId); // keep following the finger outside the sheet
+      } catch {}
+    }
+    lastY = e.clientY;
+    lastT = e.timeStamp;
+    vy = 0;
     down = true;
     longFired = false;
     x0 = e.clientX;
     y0 = e.clientY;
-    el.body.classList.add('pressing');
+    if (!canDrag) el.body.classList.add('pressing');
     longTimer = setTimeout(() => {
       longFired = true;
       lastAction = Date.now();
@@ -276,26 +340,89 @@ function bindGestures() {
       clear();
       openSettings();
     }, TIMING.SETTINGS);
-  });
-  // A finger that moves is a swipe, not a press: cancel the long-press timers.
-  el.stage.addEventListener('pointermove', (e) => {
-    if (down && Math.hypot(e.clientX - x0, e.clientY - y0) > 24) {
+  };
+
+  // A finger that moves is a swipe (or a sheet drag), not a press: cancel the long-press timers.
+  const onMove = (e) => {
+    if (!down) return;
+    const dx = e.clientX - x0;
+    const dy = e.clientY - y0;
+    if (Math.hypot(dx, dy) > 24) {
       clearTimeout(longTimer);
       clearTimeout(settingsTimer);
     }
-  });
-  el.stage.addEventListener('pointerup', (e) => {
+    if (canDrag && !dragging && Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+      dragging = true;
+      clearTimeout(longTimer);
+      clearTimeout(settingsTimer);
+      h0 = sheet.getBoundingClientRect().height;
+      el.body.classList.add('dragging');
+      el.body.classList.remove('pressing');
+    }
+    if (!dragging) return;
+    // Follow the finger; past the ends it resists like rubber.
+    const lo = 84;
+    const hi = maxSheet();
+    let h = h0 - dy;
+    if (h > hi) h = hi + (h - hi) * 0.25;
+    if (h < lo) h = lo - (lo - h) * 0.25;
+    sheet.style.height = `${h}px`;
+    const dt = e.timeStamp - lastT;
+    if (dt > 0) vy = (e.clientY - lastY) / dt; // px per ms, + = down
+    lastY = e.clientY;
+    lastT = e.timeStamp;
+  };
+
+  const onUp = (e) => {
     if (!down) return;
     clear();
+    if (dragging) {
+      dragging = false;
+      el.body.classList.remove('dragging');
+      // Settle on the nearest size, or the next one if the sheet was flicked.
+      const dy = e.clientY - y0;
+      const i = SHEET_SIZES.indexOf(el.body.dataset.sheet);
+      let next = i;
+      if (vy < -0.45 || dy < -60) next = Math.min(i + 1, 2);
+      else if (vy > 0.45 || dy > 60) next = Math.max(i - 1, 0);
+      if (dy < -maxSheet() * 0.45) next = 2;
+      if (dy > maxSheet() * 0.45) next = 0;
+      setSheet(SHEET_SIZES[next]);
+      lastAction = Date.now();
+      return;
+    }
     if (longFired) return;
+    // The handle is a button; its own click does the resizing.
+    if (e.target.closest?.('.grabber')) return;
     const dx = e.clientX - x0;
     const dy = e.clientY - y0;
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.4) return onSwipe(dx < 0 ? 1 : -1);
     if (dy > 80 && Math.abs(dy) > Math.abs(dx) * 1.4) return onSwipeDown();
     rawTap();
+  };
+
+  const onCancel = () => {
+    clear();
+    if (dragging) {
+      dragging = false;
+      el.body.classList.remove('dragging');
+      setSheet(el.body.dataset.sheet);
+    }
+  };
+
+  // The whole screen and the answer sheet share the same gestures.
+  for (const target of [el.stage, sheet]) {
+    target.addEventListener('pointerdown', onDown);
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
+    target.addEventListener('pointercancel', onCancel);
+    target.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  grabber.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const size = el.body.dataset.sheet;
+    setSheet(size === 'auto' ? 'full' : size === 'full' ? 'peek' : 'auto');
   });
-  el.stage.addEventListener('pointercancel', clear);
-  el.stage.addEventListener('contextmenu', (e) => e.preventDefault());
   // Keyboard, switch access and screen readers send a click without pointer events.
   el.stage.addEventListener('click', (e) => e.detail === 0 && rawTap());
 
@@ -407,6 +534,8 @@ function bindGestures() {
     else if (key === 'r') onLongPress();
     else if (key === 's') openSettings();
     else if (key === 'o') openPicker();
+    else if (e.key === 'ArrowUp') stepSheet(1);
+    else if (e.key === 'ArrowDown') stepSheet(-1);
     else if (key === 'h' || e.key === '?') sayHelp();
     else if (e.key === 'ArrowRight') onSwipe(1);
     else if (e.key === 'ArrowLeft') onSwipe(-1);
@@ -759,62 +888,85 @@ function toggleLight() {
 
 // ---------- Qibla compass (location stays on the phone) ----------
 
+const num = (n) => new Intl.NumberFormat(settings.lang === 'ar' ? 'ar-SA' : settings.lang === 'ml' ? 'ml-IN' : 'en-US').format(Math.round(n));
+
 async function toggleQibla() {
   if (sensor) return stopSensorsAndSay();
   const my = ++op;
   stopSpeaking();
   let lastTick = 0;
-  let lastSpoke = Date.now() + 2500; // let the first instruction finish
+  let lastSpoke = Date.now() + 6000; // let the introduction finish first
   let lastText = '';
+  let warnedCalibration = false;
+  const talk = (words) => (settings.srMode ? announce(words) : speak(words));
   // startQibla asks the iPhone for compass permission inside this tap, before anything else.
-  const pending = startQibla((turn) => {
+  const pending = startQibla(({ heading, turn, accuracy }) => {
     if (my !== op) return;
-    el.body.style.setProperty('--qibla', `${turn.toFixed(1)}deg`);
+    el.body.style.setProperty('--heading', `${heading.toFixed(1)}deg`);
     const off = Math.abs(turn);
     const now = Date.now();
+    // iPhone tells us when the compass is unsure (accuracy in degrees, -1 = unknown).
+    if (!warnedCalibration && (accuracy === -1 || accuracy > 25)) {
+      warnedCalibration = true;
+      lastSpoke = now + 3000;
+      talk(t('calibrate'));
+    }
     if (off < 8) {
       if (el.body.dataset.facing !== 'yes') {
         el.body.dataset.facing = 'yes';
         sounds.found();
         vibrate([60, 40, 60, 40, 200]);
         lastSpoke = now;
-        fit(t('facing'));
-        settings.srMode ? announce(t('facing')) : speak(t('facing'));
+        fit(t('facing'), settings.textPt, true);
+        talk(t('facing'));
       }
       return;
     }
     if (el.body.dataset.facing === 'yes' && off < 20) return; // stay "found" through small wobbles
     el.body.dataset.facing = 'no';
-    if (now - lastTick > 180 + off * 5) {
+    // Ticks get faster and higher as you get closer.
+    if (now - lastTick > 160 + off * 5) {
       lastTick = now;
       sounds.tick(1 - off / 180);
     }
-    const text = `${turn < 0 ? '←' : '→'} ${Math.round(off / 5) * 5}°`;
+    const text = `${turn < 0 ? '←' : '→'} ${num(Math.round(off / 5) * 5)}°`;
     if (text !== lastText) {
       lastText = text;
       fit(text, settings.textPt, true);
     }
-    if (now - lastSpoke > 3000) {
+    if (now - lastSpoke > 3500) {
       lastSpoke = now;
-      const words = t(turn < 0 ? 'turnLeft' : 'turnRight');
-      settings.srMode ? announce(words) : speak(words);
+      const n = num(Math.round(off / 10) * 10 || 10);
+      talk(off < 25 ? t('almost') : t(turn < 0 ? 'turnLeftDeg' : 'turnRightDeg', { n }));
     }
   }, DEMO);
   let cancelled = false;
   sensor = { stop: () => (cancelled = true) };
   el.body.dataset.running = 'qibla';
   updateLabels();
-  say(t('qiblaStart'));
+  show(t('qiblaLocating'));
+  let q;
   try {
-    const compass = await pending;
-    if (cancelled || my !== op) return compass.stop();
-    sensor = compass;
-  } catch (e) {
+    q = await pending;
+  } catch {
     if (cancelled || my !== op) return;
     stopSensors();
     sounds.error();
-    say(t(e.message === 'no-location' ? 'noLocation' : 'noCompass'));
+    return say(t('noLocation'));
   }
+  if (cancelled || my !== op) return q.stop();
+  el.body.style.setProperty('--target', `${q.target.toFixed(1)}deg`);
+  const facts = { km: num(q.distanceKm), deg: num(q.target), dir: t(`compass.${compassPoint(q.target)}`) };
+  if (!q.compass) {
+    // Laptop or a phone without a compass: still give the real direction, map style (north up).
+    stopSensors();
+    el.body.dataset.running = 'qibla-map';
+    el.body.style.setProperty('--heading', '0deg');
+    return say(t('qiblaNoCompass', facts));
+  }
+  sensor = q;
+  updateLabels();
+  say(t('qiblaIntro', facts));
 }
 
 async function listen(intro) {
@@ -1134,8 +1286,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('resize', () => {
-  const span = el.message.firstElementChild;
-  if (span && !paging) fit(span.textContent);
+  if (currentText && !paging && !el.body.dataset.running) layoutText(currentText);
 });
 
 async function checkServer() {
