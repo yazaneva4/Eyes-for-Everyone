@@ -274,16 +274,19 @@ const askers = {
     }),
   // Some free models "think" first, so leave them room before the answer.
   openrouter: ({ image, mime, text, system }) =>
-    openrouterChat([
-      { role: 'system', content: system },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text },
-          { type: 'image_url', image_url: { url: `data:${mime};base64,${image}` } },
-        ],
-      },
-    ], 1500),
+    // Gemma (and some other free models) reject a separate "system" message, so the rules go in the same message.
+    openrouterChat(
+      [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: `${system}\n\n---\n\nQuestion: ${text}` },
+            { type: 'image_url', image_url: { url: `data:${mime};base64,${image}` } },
+          ],
+        },
+      ],
+      1500
+    ),
 };
 
 export async function askAI({ image, mime, question, lang, history, provider }) {
