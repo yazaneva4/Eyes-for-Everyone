@@ -115,11 +115,11 @@ export function available() {
   };
 }
 
-// Preferred provider first, the other one as a fallback.
+// Free OpenRouter models first; Gemini (cheapest Flash-Lite) when they are busy or out of quota.
 function order(preferred) {
   const k = keys();
-  const pref = preferred || process.env.AI_PROVIDER || 'gemini';
-  const list = pref === 'openrouter' ? ['openrouter', 'gemini'] : ['gemini', 'openrouter'];
+  const pref = preferred || process.env.AI_PROVIDER || 'openrouter';
+  const list = pref === 'gemini' ? ['gemini', 'openrouter'] : ['openrouter', 'gemini'];
   return list.filter((p) => k[p]);
 }
 
@@ -163,6 +163,7 @@ async function readError(r) {
 // retired ones are remembered and skipped. After these, the free OpenRouter models are the backup.
 const CHEAPEST_GEMINI = [
   'gemini-2.5-flash-lite', // $0.10 / $0.40
+  'gemini-2.5-flash-lite-preview-09-2025', // same price, older name
   'gemini-3.1-flash-lite', // $0.25 / $1.50
   'gemini-3.5-flash-lite', // $0.30 / $2.50
 ];
@@ -172,7 +173,7 @@ const geminiModels = () =>
     .filter((m, i, all) => m && all.indexOf(m) === i && !retired.has(m));
 
 // Questions that need the fine print get full image detail; everything else uses medium (~4× fewer image tokens).
-const READ_WORDS = /\b(read|text|say|says|written|label|sign|print|ingredients|expiry|expire|date|price|number|medicine|dose)\b|اقرأ|اقرا|مكتوب|النص|ملصق|السعر|التاريخ|دواء|വായിക്ക|എഴുതി|ലേബൽ|വില|തീയതി|മരുന്ന്/i;
+const READ_WORDS = /\b(read|text|say|says|written|label|sign|print|ingredients|expiry|expire|date|price|number|medicine|dose|money|riyals?|banknotes?|notes|coins?)\b|اقرأ|اقرا|مكتوب|النص|ملصق|السعر|التاريخ|دواء|ريال|نقود|فلوس|عملة|ورقة نقدية|വായിക്ക|എഴുതി|ലേബൽ|വില|തീയതി|മരുന്ന്|പണം|റിയാൽ|നോട്ട്/i;
 export const wantsReading = (q) => READ_WORDS.test(String(q));
 
 let lastUsage = null; // token counts of the most recent Gemini call (for the /test page)

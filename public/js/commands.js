@@ -10,6 +10,12 @@ const PHRASES = {
   smaller: ['smaller text', 'smaller', 'text smaller', 'صغر الخط', 'خط اصغر', 'تصغير الخط', 'ചെറിയ അക്ഷരം', 'അക്ഷരം ചെറുതാക്കുക'],
   theme: ['change theme', 'change colors', 'change colours', 'colors', 'colours', 'theme', 'غير الالوان', 'الالوان', 'നിറം മാറ്റുക', 'നിറം'],
   settings: ['settings', 'open settings', 'الاعدادات', 'افتح الاعدادات', 'ക്രമീകരണങ്ങൾ'],
+  read: ['read', 'read it', 'read this', 'read text', 'read the text', 'اقرأ', 'اقرا', 'اقرأ النص', 'اقرأ هذا', 'വായിക്കുക', 'വായിക്കൂ'],
+  money: ['money', 'count money', 'count the money', 'how much', 'riyal', 'riyals', 'فلوس', 'عملة', 'العملة', 'ريال', 'كم المبلغ', 'كم هذا', 'عد الفلوس', 'പണം', 'എത്ര റിയാൽ', 'പണം എണ്ണുക'],
+  light: ['light', 'light mode', 'ضوء', 'الضوء', 'نور', 'وضع الضوء', 'വെളിച്ചം'],
+  qibla: ['qibla', 'qiblah', 'kibla', 'find qibla', 'قبلة', 'القبلة', 'اتجاه القبلة', 'وين القبلة', 'ഖിബ്‌ല', 'ഖിബ്ല'],
+  ask: ['ask', 'ask mode', 'question', 'اسأل', 'سؤال', 'وضع السؤال', 'ചോദിക്കുക', 'ചോദ്യം'],
+  share: ['share', 'send', 'share it', 'شارك', 'ارسل', 'مشاركة', 'പങ്കിടുക', 'ഷെയർ'],
 };
 
 const FILLERS = ['please', 'can you', 'could you', 'من فضلك', 'لو سمحت', 'ممكن', 'ദയവായി'];

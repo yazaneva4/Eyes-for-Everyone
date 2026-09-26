@@ -87,6 +87,13 @@ export const sounds = {
     tone(659, 0.09, 0.2, { gain: 0.22 });
     tone(784, 0.18, 0.35, { gain: 0.22 });
   },
+  // Short tick for the Qibla compass: higher and louder the closer you are.
+  tick: (closeness) => tone(500 + closeness * 700, 0, 0.06, { gain: 0.12 + closeness * 0.15 }),
+  // Soft two-note "you found it".
+  found: () => {
+    tone(784, 0, 0.16, { gain: 0.25 });
+    tone(1046, 0.15, 0.3, { gain: 0.25 });
+  },
   error: () => {
     tone(220, 0, 0.18, { type: 'triangle', gain: 0.35 });
     tone(180, 0.22, 0.28, { type: 'triangle', gain: 0.35 });
@@ -97,4 +104,24 @@ export function vibrate(pattern) {
   try {
     navigator.vibrate?.(pattern);
   } catch {}
+}
+
+/** A steady tone whose pitch you can change (light meter). */
+export function liveTone() {
+  const c = ac();
+  if (!c) return { set() {}, stop() {} };
+  const osc = c.createOscillator();
+  const g = c.createGain();
+  osc.type = 'sine';
+  g.gain.value = 0.0001;
+  osc.connect(g).connect(c.destination);
+  osc.start();
+  g.gain.exponentialRampToValueAtTime(0.1 * settings.volume + 0.0001, c.currentTime + 0.2);
+  return {
+    set: (level) => osc.frequency.setTargetAtTime(160 + level * 1100, c.currentTime, 0.08),
+    stop: () => {
+      g.gain.setTargetAtTime(0.0001, c.currentTime, 0.05);
+      setTimeout(() => osc.stop(), 300);
+    },
+  };
 }

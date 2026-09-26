@@ -11,7 +11,21 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 | **Double-tap** | New photo. |
 | **Press and hold** | Repeat the last answer. |
 | **Hold 3 seconds** | Settings (language, speed, text size, theme, screen reader mode). |
+| **Swipe left / right** | Change mode: **Ask**, **Read**, **Money**, **Light**, **Qibla**. |
+| **Swipe up** (on an answer) | Share the answer with family (WhatsApp, Messages…). |
 | Say *repeat · faster · slower · louder · change language · bigger text* | Voice commands while listening (English, Arabic, Malayalam). |
+
+### Modes
+
+| Mode | What one tap does |
+| --- | --- |
+| **Ask** | Takes a photo, then you ask a question out loud. |
+| **Read** | Takes a photo and reads all the printed text in it, top to bottom. No question needed. |
+| **Money** | Takes a photo and says each **Saudi riyal** note or coin and the total. |
+| **Light** | Starts a tone that rises with brightness, and speaks "dark / dim / bright". It uses no AI and no internet. Tap again to stop. |
+| **Qibla** | A talking compass: "turn left… turn right… you are facing the Qibla", with ticks and vibration. It uses GPS and the compass, and **the location never leaves the phone**. |
+
+While listening you can also just say *read*, *money*, *light*, *qibla*, *ask* or *share*.
 
 Taps while THINKING are ignored, and extra taps within 500 ms are ignored so accidental double touches do nothing.
 
@@ -33,6 +47,7 @@ Eyes-for-Everyone/
 │   ├── index.html            ← the skeleton of the one big screen.
 │   ├── css/app.css           ← the paint: big letters, strong colours, shiny glass and glowing animations.
 │   ├── js/app.js             ← the brain that decides what happens after every tap.
+│   ├── js/sensors.js         ← the light meter and the Qibla compass, which work without the internet.
 │   ├── js/glass.js           ← makes the glass as clear as possible but never too clear to read, and moves its shine.
 │   ├── js/camera.js          ← opens the camera, snaps the photo, and checks it is not too dark or blurry.
 │   ├── js/listen.js          ← records your question with the microphone.
@@ -41,6 +56,7 @@ Eyes-for-Everyone/
 │   ├── js/commands.js        ← notices when you say "repeat" or "faster" instead of a question.
 │   ├── js/i18n.js            ← every sentence in English, Arabic and Malayalam.
 │   ├── js/settings.js        ← remembers your language, speed, text size and colours on your phone.
+│   ├── about.html + about.css ← an Arabic-first page about the app, for journalists and visitors (/about).
 │   ├── manifest.webmanifest  ← lets you add the app to your home screen like a real app.
 │   ├── icons/icon.svg        ← the app's eye picture.
 │   └── test/                 ← the secret grown-up page at /test
@@ -65,7 +81,7 @@ Eyes-for-Everyone/
    OPENROUTER_API_KEY=your-openrouter-key
    ELEVENLABS_API_KEY=your-elevenlabs-key
    ```
-   - **Gemini or OpenRouter** (at least one) answers questions about the photo. OpenRouter uses free models only (Qwen 3.8 27B by default, with Gemma 4 as backup).
+   - **OpenRouter** (free models only) answers first: Qwen 3.8 27B, then Gemma 4. When they are busy or out of quota, **Gemini** (the cheapest Flash-Lite) answers instead. You need at least one of the two.
    - **ElevenLabs** (recommended) gives the app one natural voice in English, Arabic *and* Malayalam, and the best speech-to-text (Scribe).
      Without it, the phone's own voice is used and Gemini does the speech-to-text.
    With no keys at all, the app still runs in *demo mode* with a pretend answer.
@@ -140,7 +156,7 @@ It is built to feel like a modern camera app, not a remote control:
 - Gemini uses the cheapest image-capable model your key can use (Flash-Lite), with "thinking" off or at its minimum.
 - Photos are sent at reduced detail (about 256–280 image tokens). Full detail is used only when the question asks to read something, like a label, sign, price, date or medicine box.
 - Answers are capped at 300 output tokens (800 when reading text). Follow-ups send only the last two questions.
-- If Gemini is out of quota, the app uses OpenRouter's free models, which cost nothing.
+- Free OpenRouter models answer first, so most questions cost nothing. Gemini is only used when they are busy.
 - The `/test` page shows the real input and output tokens for every answer, and they are included in the CSV export.
 
 ## Low-vision design
@@ -155,7 +171,7 @@ It is built to feel like a modern camera app, not a remote control:
 
 | Name | Default | Meaning |
 | --- | --- | --- |
-| `AI_PROVIDER` | `gemini` | Which AI answers first (`gemini` or `openrouter`). The other one is the automatic fallback. |
+| `AI_PROVIDER` | `openrouter` | Which AI answers first (`openrouter` or `gemini`). The other one is the automatic fallback. |
 | `GEMINI_MODEL` | *(cheapest available)* | By default the app tries `gemini-2.5-flash-lite` ($0.10/$0.40), then `gemini-3.1-flash-lite` ($0.25/$1.50), then `gemini-3.5-flash-lite` ($0.30/$2.50), and remembers any that Google has retired. Set this to force one model. |
 | `GEMINI_FALLBACK_MODEL` | *(none)* | Optional second Gemini model. By default the free OpenRouter models are the backup instead. |
 | `OPENROUTER_MODEL` | `qwen/qwen3.8-27b:free` | **Only free models are used**: an ID must end in `:free`, and safety-filter models are blocked. Backups: `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`. |

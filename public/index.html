@@ -43,6 +43,11 @@
         <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" /></symbol>
         <symbol id="i-reader" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="1.8" /><path d="M5 8.5 12 10l7-1.5M12 10v4.5M12 14.5 9 21M12 14.5 15 21" /></symbol>
         <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></symbol>
+        <symbol id="i-money" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.6" /><path d="M6 9.5v5M18 9.5v5" /></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" /></symbol>
+        <symbol id="i-kaaba" viewBox="0 0 24 24"><path d="M12 3 21 7.5v9L12 21l-9-4.5v-9Z" /><path d="M3 7.5 12 12l9-4.5M12 12v9M3.4 10.6 12 15l8.6-4.4" /></symbol>
+        <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" /><path d="M5 12v7.5h14V12" /></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 3 19 20l-7-4-7 4Z" /></symbol>
       </defs>
     </svg>
 
@@ -68,7 +73,14 @@
           <div class="wordmark" id="wordmark">Eyes for Everyone</div>
         </div>
         <div class="viewfinder"><i></i><i></i><i></i><i></i></div>
-        <div class="shutter"><span></span></div>
+        <div class="shutter"><span><svg class="ic"><use id="mode-icon" href="#i-cam" /></svg></span></div>
+        <div class="dots"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="lightmeter"><span class="glow"></span><span class="core"><svg class="ic"><use href="#i-sun" /></svg></span></div>
+        <div class="compass">
+          <span class="ring"></span>
+          <span class="needle"><svg class="ic"><use href="#i-arrow" /></svg></span>
+          <span class="kaaba"><svg class="ic"><use href="#i-kaaba" /></svg></span>
+        </div>
         <div class="voice">
           <span class="ring r3"></span><span class="ring r2"></span><span class="ring r1"></span>
           <span class="core"><svg class="ic"><use href="#i-mic" /></svg></span>
@@ -100,6 +112,8 @@
       <div class="sr-row">
         <button id="sr-new" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg><span class="v">New photo</span></button>
         <button id="sr-repeat" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-redo" /></svg><span class="v">Repeat</span></button>
+        <button id="sr-mode" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-redo" /></svg><span class="v">Mode</span></button>
+        <button id="sr-share" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-share" /></svg><span class="v">Share</span></button>
         <button id="sr-settings" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-gear" /></svg><span class="v">Settings</span></button>
       </div>
     </div>
