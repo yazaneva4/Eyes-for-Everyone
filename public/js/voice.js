@@ -162,15 +162,23 @@ function playUrl(url, my) {
       resolve(ok);
     };
     const watch = setInterval(() => my !== token && (audio.pause(), finish(true)), 100);
-    audio.onended = () => finish(true);
-    audio.onerror = () => finish(started);
+    // Never wait forever: if the clip has not started within 4 s (e.g. the browser holds back
+    // sound in a tab that is not on screen), give up and let the phone's own voice say it.
+    const stall = setTimeout(() => {
+      if (!started) {
+        audio.pause();
+        finish(false);
+      }
+    }, 4000);
+    audio.onended = () => (clearTimeout(stall), finish(true));
+    audio.onerror = () => (clearTimeout(stall), finish(started));
     audio.src = url;
     audio.playbackRate = settings.rate;
     audio.volume = Math.min(1, settings.volume);
     audio
       .play()
       .then(() => (started = true))
-      .catch(() => finish(false));
+      .catch(() => (clearTimeout(stall), finish(false)));
   });
 }
 
