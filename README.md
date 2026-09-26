@@ -31,7 +31,7 @@ The app does two things:
 | **Swipe left / right** (or tap a mode name) | Change mode: **Ask**, **Read**, **Money**, **Color**, **Light**, **Qibla**. |
 | **Swipe down** | Open a picture from the gallery. |
 
-The screen looks like a camera app. At the **bottom** is a strip of mode names, the **gallery** button, the round **shutter**, and one button that changes with the moment: *repeat* when ready, *cancel* while listening or thinking, and *ask more* after an answer. At the **top** are **help (?)** and **settings (⚙)**. Tapping anywhere else on the screen still works like the shutter.
+There is no shutter button: **tap anywhere**. At the **bottom** are the **gallery** button, **Describe | Qibla**, and one button that changes with the moment (*repeat* when ready, *ask about it* after an answer). At the **top** are **help (?)** and **settings (⚙)**.
 
 **Laptop / PC:** press **Space** (or click anywhere) instead of tapping. The other keys are **A** ask more, **R** repeat, **← / →** change mode (or scroll sideways on a trackpad), **O** open a picture, **S** settings and **H** spoken help. You can also **drag a picture onto the page** or **paste** one (Ctrl/⌘+V), for example a screenshot. If the computer has no camera, the app says so and suggests dropping or pasting a picture instead.
 
@@ -175,7 +175,7 @@ It is built to feel like a modern camera app, not a remote control:
 - Text is 24 pt by default and can be set from 18 to 64 pt; it never scrolls. Long answers shrink to fit, then show one sentence at a time in step with the voice.
 - There are three themes, all well above 7:1 contrast: yellow on black (default), white on black, and black on white. The "liquid glass" panels are at least 85% opaque, so the camera behind them can't lower the contrast.
 - The screen stays awake, and portrait and landscape both work.
-- Live regions announce every state to screen readers. **Screen reader mode** turns off the full-screen gesture area so the labelled dock and top-bar buttons can be used with VoiceOver or TalkBack.
+- Live regions announce every state to screen readers. **Screen reader mode** turns off the app's own voice so VoiceOver or TalkBack can read everything; the whole screen is one labelled button they can activate.
 - No tutorial: the first tap opens the camera (the phone asks for permission) and the app speaks the disclaimer once.
 
 ## Settings you can change (optional environment variables)

@@ -37,9 +37,7 @@ const el = {
   btnHelp: $('btn-help'),
   btnSettings: $('btn-settings'),
   btnGallery: $('btn-gallery'),
-  btnShutter: $('btn-shutter'),
   btnSide: $('btn-side'),
-  shutterIcon: $('shutter-icon'),
   sideIcon: $('side-icon'),
   modebar: $('modebar'),
   fileInput: $('file-input'),
@@ -198,20 +196,6 @@ function updateLabels() {
   el.btnSettings.setAttribute('aria-label', t('sr.settings'));
   el.btnGallery.setAttribute('aria-label', t('sr.open'));
   for (const b of el.modebar.children) b.textContent = t(`modes.${b.dataset.mode}.name`);
-
-  // The shutter: what one tap does right now (hidden in Qibla, which runs by itself).
-  const shutter = {
-    start: [t('start'), 'i-eye'],
-    ready: [t('sr.takePhoto'), null],
-    listening: [t('sr.stop'), 'i-stop'],
-    thinking: [t('sr.wait'), null],
-    answer: [t('sr.newPhoto'), 'i-cam'],
-  }[state];
-  if (shutter) {
-    el.btnShutter.setAttribute('aria-label', shutter[0]);
-    setIcon(el.shutterIcon, el.btnShutter, shutter[1]);
-  }
-  el.btnShutter.setAttribute('aria-disabled', state === 'thinking' ? 'true' : 'false');
 
   // The button on the right changes with the moment: repeat, ask about it, or cancel.
   const side =
@@ -423,12 +407,6 @@ function bindGestures() {
     save();
     el.body.classList.add('sr');
     begin();
-  });
-  el.btnShutter.addEventListener('click', () => {
-    if (state === 'thinking' || Date.now() - lastAction < TIMING.DEBOUNCE) return;
-    lastAction = Date.now();
-    vibrate(20);
-    onTap();
   });
   el.btnSide.addEventListener('click', () => {
     if (state === 'answer') return listen(t('askNow'));

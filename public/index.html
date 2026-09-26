@@ -95,22 +95,17 @@
       </div>
     </div>
 
-    <!-- The whole screen is one big button: tapping anywhere works like the shutter -->
+    <!-- The whole screen is one big button: tap anywhere to take a photo -->
     <button id="stage" type="button" aria-label="Tap anywhere to start"></button>
 
-    <!-- Bottom dock, like a camera app: modes, gallery, shutter, and one action that changes with the moment -->
+    <!-- Bottom bar: gallery · Describe | Qibla · one button that changes with the moment (repeat / ask) -->
     <nav class="dock" aria-label="Controls">
+      <button id="btn-gallery" class="icon-btn glass" type="button" aria-label="Open picture"><svg class="ic" aria-hidden="true"><use href="#i-image" /></svg></button>
       <div class="modebar glass" id="modebar" role="tablist">
         <button type="button" role="tab" data-mode="describe">Describe</button>
         <button type="button" role="tab" data-mode="qibla">Qibla</button>
       </div>
-      <div class="controls">
-        <button id="btn-gallery" class="icon-btn glass" type="button" aria-label="Open picture"><svg class="ic" aria-hidden="true"><use href="#i-image" /></svg></button>
-        <button id="btn-shutter" class="shutter-btn" type="button" aria-label="Take photo">
-          <span class="disc"><svg class="ic" aria-hidden="true"><use id="shutter-icon" href="#i-cam" /></svg></span>
-        </button>
-        <button id="btn-side" class="icon-btn glass" type="button" aria-label="Repeat answer"><svg class="ic" aria-hidden="true"><use id="side-icon" href="#i-redo" /></svg></button>
-      </div>
+      <button id="btn-side" class="icon-btn glass" type="button" aria-label="Repeat answer"><svg class="ic" aria-hidden="true"><use id="side-icon" href="#i-redo" /></svg></button>
     </nav>
 
     <button id="sr-link" class="text-link" type="button">Screen reader mode</button>
