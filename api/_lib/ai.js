@@ -19,6 +19,7 @@ function keys() {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
       '',
     openai: process.env.OPENAI_API_KEY || '',
+    elevenlabs: process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY || process.env.XI_API_KEY || '',
   };
 }
 
@@ -29,8 +30,11 @@ export function available() {
     gemini: !!k.gemini,
     openai: !!k.openai,
     ask: mock || !!(k.gemini || k.openai),
-    transcribe: !!(k.gemini || k.openai),
-    speak: !!k.openai,
+    elevenlabs: !!k.elevenlabs,
+    transcribe: !!(k.elevenlabs || k.gemini || k.openai),
+    speak: !!(k.elevenlabs || k.openai),
+    // ElevenLabs sounds good enough to be the app's only voice; OpenAI is used only as a backup.
+    voice: k.elevenlabs ? 'elevenlabs' : k.openai ? 'openai' : null,
     mock,
   };
 }
@@ -178,6 +182,23 @@ async function openaiTranscribe(buf, mime, lang) {
   return (j.text || '').trim();
 }
 
+async function elevenTranscribe(buf, mime, lang) {
+  const form = new FormData();
+  form.append('file', new Blob([buf], { type: mime }), `question.${EXT[mime] || 'webm'}`);
+  form.append('model_id', process.env.ELEVENLABS_STT_MODEL || 'scribe_v2');
+  form.append('language_code', lang);
+  form.append('tag_audio_events', 'false');
+  const r = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+    method: 'POST',
+    headers: { 'xi-api-key': keys().elevenlabs },
+    body: form,
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!r.ok) throw new Error(`ElevenLabs STT ${r.status}: ${await readError(r)}`);
+  const j = await r.json();
+  return (j.text || '').trim();
+}
+
 async function geminiTranscribe(buf, mime, lang) {
   const name = LANGS[lang].name;
   const text = await geminiGenerate(
@@ -196,14 +217,15 @@ async function geminiTranscribe(buf, mime, lang) {
 export async function transcribe({ audio, mime, lang }) {
   const buf = Buffer.from(audio, 'base64');
   const base = (mime || 'audio/webm').split(';')[0].trim();
-  // OpenAI handles every browser recording format, so it goes first for speech.
+  // ElevenLabs Scribe and OpenAI accept every browser recording format, so they go first.
   const k = keys();
-  const list = [k.openai && 'openai', k.gemini && 'gemini'].filter(Boolean);
+  const list = [k.elevenlabs && 'elevenlabs', k.openai && 'openai', k.gemini && 'gemini'].filter(Boolean);
   if (!list.length) throw Object.assign(new Error('No speech-to-text key configured'), { status: 503 });
   let lastErr;
   for (const p of list) {
     try {
-      return p === 'openai' ? await openaiTranscribe(buf, base, lang) : await geminiTranscribe(buf, base, lang);
+      const fn = { elevenlabs: elevenTranscribe, openai: openaiTranscribe, gemini: geminiTranscribe }[p];
+      return await fn(buf, base, lang);
     } catch (e) {
       lastErr = e;
     }
@@ -211,10 +233,30 @@ export async function transcribe({ audio, mime, lang }) {
   throw lastErr;
 }
 
-// ---------- text to speech (used when the phone has no voice for a language) ----------
+// ---------- text to speech ----------
 
-export async function speech({ text, lang }) {
-  if (!keys().openai) throw Object.assign(new Error('No text-to-speech key configured'), { status: 503 });
+// eleven_flash_v2_5 is the fastest but has no Malayalam, so Malayalam uses eleven_v3.
+const ELEVEN_MODEL = { en: 'eleven_flash_v2_5', ar: 'eleven_flash_v2_5', ml: 'eleven_v3' };
+
+async function elevenSpeech(text, lang) {
+  const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
+  const model = process.env[`ELEVENLABS_TTS_MODEL_${lang.toUpperCase()}`] || process.env.ELEVENLABS_TTS_MODEL || ELEVEN_MODEL[lang];
+  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'xi-api-key': keys().elevenlabs, accept: 'audio/mpeg' },
+    body: JSON.stringify({
+      text,
+      model_id: model,
+      language_code: lang,
+      voice_settings: { stability: 0.6, similarity_boost: 0.8 },
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!r.ok) throw new Error(`ElevenLabs TTS ${r.status}: ${await readError(r)}`);
+  return Buffer.from(await r.arrayBuffer());
+}
+
+async function openaiSpeech(text, lang) {
   const r = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${keys().openai}` },
@@ -229,4 +271,19 @@ export async function speech({ text, lang }) {
   });
   if (!r.ok) throw new Error(`OpenAI TTS ${r.status}: ${await readError(r)}`);
   return Buffer.from(await r.arrayBuffer());
+}
+
+export async function speech({ text, lang }) {
+  const k = keys();
+  const list = [k.elevenlabs && elevenSpeech, k.openai && openaiSpeech].filter(Boolean);
+  if (!list.length) throw Object.assign(new Error('No text-to-speech key configured'), { status: 503 });
+  let lastErr;
+  for (const fn of list) {
+    try {
+      return await fn(text, lang);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }

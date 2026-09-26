@@ -7,7 +7,7 @@
     <meta name="description" content="Take a photo, ask a question out loud, hear the answer. A helper for people with low vision." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Eyes for Everyone</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
@@ -16,12 +16,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@500;800&family=Noto+Sans+Arabic:wght@500;800&family=Noto+Sans+Malayalam:wght@500;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@500;700;800&family=Noto+Sans+Arabic:wght@500;800&family=Noto+Sans+Malayalam:wght@500;800&display=swap"
     />
     <link rel="stylesheet" href="/css/app.css" />
     <script type="module" src="/js/app.js"></script>
   </head>
   <body data-state="start" data-camera="off" data-photo="off">
+    <svg class="sprite" width="0" height="0" aria-hidden="true">
+      <defs>
+        <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3.2" /></symbol>
+        <symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4Z" /><circle cx="12" cy="13.2" r="3.6" /></symbol>
+        <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></symbol>
+        <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8Z" /></symbol>
+        <symbol id="i-redo" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.6h4.6" /></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4Z" /><path d="M12 10.5v6M9 13.5h6" /></symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></symbol>
+        <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3Z" /></symbol>
+        <symbol id="i-speed" viewBox="0 0 24 24"><path d="M4.2 17a8.5 8.5 0 1 1 15.6 0" /><path d="m12 13 4-4.5" /><circle cx="12" cy="13" r="1.2" /></symbol>
+        <symbol id="i-text" viewBox="0 0 24 24"><path d="M3 19 8 5l5 14M4.8 14h6.4M15 19l3-8 3 8M15.9 16.6h4.2" /></symbol>
+        <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" /></symbol>
+        <symbol id="i-reader" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="1.8" /><path d="M5 8.5 12 10l7-1.5M12 10v4.5M12 14.5 9 21M12 14.5 15 21" /></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></symbol>
+      </defs>
+    </svg>
+
     <!-- Background: live camera, the frozen photo, or soft moving light -->
     <div id="scene" aria-hidden="true">
       <div class="aurora"><span></span><span></span><span></span></div>
@@ -30,37 +48,68 @@
       <div class="veil"></div>
     </div>
     <div id="flash" aria-hidden="true"></div>
+    <!-- Glowing screen edge while listening and thinking -->
+    <div class="edge edge-soft" aria-hidden="true"></div>
+    <div class="edge edge-sharp" aria-hidden="true"></div>
 
-    <!-- What you see: the big status word and the big message -->
     <div class="hud">
-      <div class="pill glass" aria-hidden="true">
-        <span class="orb"></span><span id="status-word">START</span>
+      <div class="pill glass" aria-hidden="true"><span class="orb"></span><span id="status-word">START</span></div>
+
+      <!-- Middle of the screen: a picture of what is happening now -->
+      <div class="focus" aria-hidden="true">
+        <div class="brand">
+          <div class="logo glass"><svg class="ic"><use href="#i-eye" /></svg></div>
+          <div class="wordmark" id="wordmark">Eyes for Everyone</div>
+        </div>
+        <div class="viewfinder"><i></i><i></i><i></i><i></i></div>
+        <div class="shutter"><span></span></div>
+        <div class="voice">
+          <span class="ring r3"></span><span class="ring r2"></span><span class="ring r1"></span>
+          <span class="core"><svg class="ic"><use href="#i-mic" /></svg></span>
+        </div>
+        <div class="think"><span class="blob"></span><span class="core"><svg class="ic"><use href="#i-spark" /></svg></span></div>
       </div>
-      <div class="card glass"><div id="message"></div></div>
+
+      <div class="sheet glass">
+        <span class="grabber" aria-hidden="true"></span>
+        <div id="message"></div>
+      </div>
     </div>
 
     <!-- The whole screen is this one button -->
     <button id="stage" type="button" aria-label="Tap anywhere to start"></button>
 
-    <button id="welcome-sr" class="big glass" type="button">Screen reader mode</button>
+    <button id="welcome-sr" class="big glass" type="button">
+      <svg class="ic" aria-hidden="true"><use href="#i-reader" /></svg><span class="v">Screen reader mode</span>
+    </button>
 
     <!-- Screen reader mode: a few very large buttons instead of gestures -->
     <div id="sr-panel">
-      <button id="sr-main" class="big glass" type="button">Start</button>
+      <button id="sr-main" class="big glass primary" type="button">
+        <svg class="ic ic-cam" aria-hidden="true"><use href="#i-cam" /></svg>
+        <svg class="ic ic-mic" aria-hidden="true"><use href="#i-mic" /></svg>
+        <svg class="ic ic-spark" aria-hidden="true"><use href="#i-spark" /></svg>
+        <span class="v">Start</span>
+      </button>
       <div class="sr-row">
-        <button id="sr-new" class="big glass" type="button" hidden>New photo</button>
-        <button id="sr-repeat" class="big glass" type="button" hidden>Repeat answer</button>
-        <button id="sr-settings" class="big glass" type="button" hidden>Settings</button>
+        <button id="sr-new" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg><span class="v">New photo</span></button>
+        <button id="sr-repeat" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-redo" /></svg><span class="v">Repeat</span></button>
+        <button id="sr-settings" class="big glass" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-gear" /></svg><span class="v">Settings</span></button>
       </div>
     </div>
 
-    <div id="settings" role="dialog" aria-modal="true" aria-label="Settings" hidden>
-      <button type="button" class="big glass" data-set="lang"></button>
-      <button type="button" class="big glass" data-set="speed"></button>
-      <button type="button" class="big glass" data-set="size"></button>
-      <button type="button" class="big glass" data-set="theme"></button>
-      <button type="button" class="big glass" data-set="sr"></button>
-      <button type="button" class="big glass done" data-set="done"></button>
+    <div id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="settings-sheet glass">
+        <h2 id="settings-title"><svg class="ic" aria-hidden="true"><use href="#i-gear" /></svg><span class="v">Settings</span></h2>
+        <div class="rows">
+          <button type="button" class="row" data-set="lang"><svg class="ic" aria-hidden="true"><use href="#i-globe" /></svg><span class="v"></span></button>
+          <button type="button" class="row" data-set="speed"><svg class="ic" aria-hidden="true"><use href="#i-speed" /></svg><span class="v"></span></button>
+          <button type="button" class="row" data-set="size"><svg class="ic" aria-hidden="true"><use href="#i-text" /></svg><span class="v"></span></button>
+          <button type="button" class="row" data-set="theme"><svg class="ic" aria-hidden="true"><use href="#i-contrast" /></svg><span class="v"></span></button>
+          <button type="button" class="row" data-set="sr"><svg class="ic" aria-hidden="true"><use href="#i-reader" /></svg><span class="v"></span></button>
+        </div>
+        <button type="button" class="big done" data-set="done"><svg class="ic" aria-hidden="true"><use href="#i-check" /></svg><span class="v"></span></button>
+      </div>
     </div>
 
     <!-- Screen readers announce these when they change -->

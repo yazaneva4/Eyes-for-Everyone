@@ -24,14 +24,14 @@ Eyes-for-Everyone/
 ├── api/                      ← the small robots that live on the server
 │   ├── ask.js                ← takes your photo and question and asks the AI what it sees.
 │   ├── transcribe.js         ← listens to your recorded voice and writes down the words.
-│   ├── speak.js              ← reads text out loud when your phone has no voice for that language.
+│   ├── speak.js              ← turns words into a natural voice with ElevenLabs (or GPT as a backup).
 │   ├── health.js             ← tells the app which AI helpers are switched on.
 │   └── _lib/
-│       ├── ai.js             ← knows how to talk to Gemini and GPT, and holds the AI's rules.
+│       ├── ai.js             ← knows how to talk to Gemini, GPT and ElevenLabs, and holds the AI's rules.
 │       └── http.js           ← the door guard that only lets our own app in.
 ├── public/                   ← everything your phone downloads
 │   ├── index.html            ← the skeleton of the one big screen.
-│   ├── css/app.css           ← the paint: big letters, strong colours and shiny glass.
+│   ├── css/app.css           ← the paint: big letters, strong colours, shiny glass and glowing animations.
 │   ├── js/app.js             ← the brain that decides what happens after every tap.
 │   ├── js/camera.js          ← opens the camera, snaps the photo, and checks it is not too dark or blurry.
 │   ├── js/listen.js          ← records your question with the microphone.
@@ -62,8 +62,11 @@ Eyes-for-Everyone/
    ```
    GEMINI_API_KEY=your-gemini-key
    OPENAI_API_KEY=your-openai-key
+   ELEVENLABS_API_KEY=your-elevenlabs-key
    ```
-   One is enough. **GPT is recommended for speech-to-text and needed for the server voice** (useful for Malayalam).
+   - **Gemini or GPT** (at least one) answers questions about the photo.
+   - **ElevenLabs** (recommended) gives the app one natural voice in English, Arabic *and* Malayalam, and the best speech-to-text (Scribe).
+     Without it, the phone's own voice is used, with GPT's voice as the backup for languages the phone can't speak.
    With no keys at all, the app still runs in *demo mode* with a pretend answer.
 3. **Start it:**
    ```bash
@@ -79,7 +82,7 @@ Phones only allow the camera and microphone on **https** pages. The easy way is 
 
 ### A. Vercel (recommended)
 1. Go to <https://vercel.com/yazaneva4-3470s-projects/eyes-for-everyone> → **Settings → Git** and connect the GitHub repo `yazaneva4/Eyes-for-Everyone` (if it is not already connected).
-2. **Settings → Environment Variables**: add `GEMINI_API_KEY` and/or `OPENAI_API_KEY` (Production + Preview).
+2. **Settings → Environment Variables**: add `GEMINI_API_KEY` and/or `OPENAI_API_KEY`, plus `ELEVENLABS_API_KEY` (Production + Preview). Then redeploy.
 3. Framework preset: **Other**. Leave build command empty. (`vercel.json` already sets the output folder to `public`.)
 4. Every `git push` deploys automatically. Open the `…vercel.app` link on your phone.
 5. Optional: in Safari or Chrome, choose **Add to Home Screen** so it opens full-screen like an app.
@@ -120,6 +123,15 @@ Replies and ratings are kept in that browser only. Photos are never stored.
 - On first run the app shows and speaks: **"This is a helper, not a safety tool."**
 - Camera and microphone turn off when the app goes to the background.
 
+## Look and feel
+
+It is built to feel like a modern camera app, not a remote control:
+- The camera fills the screen, with viewfinder corners and a breathing shutter ring.
+- While you speak, rings around a microphone grow with your voice and the screen edge glows.
+- While it thinks, a rainbow edge turns around the screen and a colourful orb glows.
+- The answer rises in a frosted-glass sheet over the photo it describes.
+- Landscape puts the picture on one side and the words on the other.
+
 ## Low-vision design
 
 - Text is 32–64 pt and never scrolls. Long answers shrink to fit, then show one sentence at a time in step with the voice.
@@ -136,4 +148,7 @@ Replies and ratings are kept in that browser only. Photos are never stored.
 | `GEMINI_MODEL` | `gemini-flash-latest` | Gemini model for answers. |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | GPT model for answers. |
 | `OPENAI_TRANSCRIBE_MODEL` | `gpt-4o-mini-transcribe` | Speech-to-text model. |
-| `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Server voice, used only when the phone has no voice for the language. |
+| `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Backup voice if ElevenLabs is missing or fails. |
+| `ELEVENLABS_VOICE_ID` | `JBFqnCBsd6RMkjVDRZzb` | Any voice ID from your ElevenLabs voice library. |
+| `ELEVENLABS_TTS_MODEL` | `eleven_flash_v2_5` for English and Arabic, `eleven_v3` for Malayalam | Flash is fastest but has no Malayalam. Override one language with `ELEVENLABS_TTS_MODEL_ML` (or `_EN`, `_AR`). |
+| `ELEVENLABS_STT_MODEL` | `scribe_v2` | ElevenLabs speech-to-text, tried first before GPT and Gemini. |

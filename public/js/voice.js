@@ -1,11 +1,15 @@
-// Speaks text out loud. Uses the phone's own voice, or a server voice when the phone
-// has none for the language (common for Malayalam). Screen reader mode stays silent
-// because the screen reader reads the live region instead.
+// Speaks text out loud.
+//   'always'   → ElevenLabs is set up: use it for everything, phone voice only as a backup.
+//   'fallback' → use the server voice only when the phone has none for the language (common for Malayalam).
+// Screen reader mode stays silent because the screen reader reads the live region instead.
 import { settings } from './settings.js';
 import { LOCALES } from './i18n.js';
 
 let voices = [];
-let serverVoice = false;
+let serverVoice = false; // false | 'fallback' | 'always'
+// Recently spoken sentences, kept in memory only so repeated prompts play instantly.
+const cache = new Map();
+const CACHE_MAX = 60;
 let token = 0;
 const audio = new Audio();
 audio.preload = 'auto';
@@ -18,8 +22,8 @@ if ('speechSynthesis' in window) {
   speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
 }
 
-export function enableServerVoice(on) {
-  serverVoice = on;
+export function enableServerVoice(mode) {
+  serverVoice = mode;
 }
 
 function voiceFor(lang) {
@@ -101,14 +105,38 @@ function speakBrowser(text, lang, my) {
   });
 }
 
-async function fetchServerAudio(text, lang) {
-  const r = await fetch('/api/speak', {
+function fetchServerAudio(text, lang) {
+  const key = `${lang}|${text}`;
+  if (cache.has(key)) {
+    const hit = cache.get(key);
+    cache.delete(key);
+    cache.set(key, hit); // most recently used goes last
+    return hit;
+  }
+  const p = fetch('/api/speak', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ text, lang }),
-  });
-  if (!r.ok) throw new Error('tts');
-  return URL.createObjectURL(await r.blob());
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error('tts');
+      return r.blob();
+    })
+    .then((b) => URL.createObjectURL(b));
+  p.catch(() => cache.delete(key));
+  cache.set(key, p);
+  if (cache.size > CACHE_MAX) {
+    const [oldKey, old] = cache.entries().next().value;
+    cache.delete(oldKey);
+    old.then((u) => URL.revokeObjectURL(u)).catch(() => {});
+  }
+  return p;
+}
+
+/** Warm the cache for prompts the app is about to say, so they start instantly. */
+export function preload(texts, lang) {
+  if (serverVoice !== 'always') return;
+  texts.forEach((t) => splitSentences(t).forEach((s) => fetchServerAudio(s, lang).catch(() => {})));
 }
 
 function playUrl(url, my) {
@@ -119,7 +147,6 @@ function playUrl(url, my) {
       done = true;
       clearInterval(watch);
       audio.onended = audio.onerror = null;
-      URL.revokeObjectURL(url);
       resolve();
     };
     const watch = setInterval(() => my !== token && (audio.pause(), finish()), 100);
@@ -156,7 +183,7 @@ export async function speak(text, { lang = settings.lang, onSentence } = {}) {
     onSentence?.(-1, text);
     return srWait(text, my);
   }
-  const useServer = serverVoice && !voiceFor(lang);
+  const useServer = serverVoice === 'always' || (serverVoice === 'fallback' && !voiceFor(lang));
   // Ask the server for every sentence at once so playback has no gaps.
   const urls = useServer ? parts.map((p) => fetchServerAudio(p, lang).catch(() => null)) : [];
   for (let i = 0; i < parts.length; i++) {

@@ -1,17 +1,26 @@
-/* Eyes for Everyone — liquid glass over the camera, tuned for low vision.
-   Every glass panel is at least 85% opaque, so text contrast stays above 7:1
-   whatever the camera shows behind it. */
+/* Eyes for Everyone — a camera app in liquid glass, tuned for low vision.
+   Every panel that holds text is at least 86% opaque, so contrast stays
+   above 7:1 whatever the camera shows behind it. */
+
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
 
 :root {
   --fg: #ffe14d; /* yellow on black ≈ 15:1 */
   --bg: #000;
-  --glass: rgba(10, 10, 12, 0.86);
-  --glass-edge: rgba(255, 255, 255, 0.3);
-  --glass-shine: rgba(255, 255, 255, 0.08);
-  --shadow: rgba(0, 0, 0, 0.6);
-  --veil: rgba(0, 0, 0, 0.25);
+  --glass: rgba(12, 12, 14, 0.86);
+  --glass-edge: rgba(255, 255, 255, 0.22);
+  --glass-shine: rgba(255, 255, 255, 0.07);
+  --shadow: rgba(0, 0, 0, 0.55);
+  --veil: rgba(0, 0, 0, 0.2);
+  --g2: #ff5fa2;
+  --g3: #7c8cff;
+  --g4: #3ee0c0;
+  --level: 0;
   --text-size: 40pt;
-  --radius: clamp(28px, 6vw, 44px);
   --gap: 16px;
   --font: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', 'Noto Sans Arabic', 'Noto Sans Malayalam', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color-scheme: dark;
@@ -23,10 +32,13 @@
   --fg: #000000; /* ≈ 18:1 */
   --bg: #ffffff;
   --glass: rgba(255, 255, 255, 0.9);
-  --glass-edge: rgba(0, 0, 0, 0.22);
-  --glass-shine: rgba(255, 255, 255, 0.5);
-  --shadow: rgba(0, 0, 0, 0.25);
-  --veil: rgba(255, 255, 255, 0.2);
+  --glass-edge: rgba(0, 0, 0, 0.14);
+  --glass-shine: rgba(255, 255, 255, 0.6);
+  --shadow: rgba(0, 0, 0, 0.2);
+  --veil: rgba(255, 255, 255, 0.12);
+  --g2: #e0306f;
+  --g3: #4052e6;
+  --g4: #0a9e84;
   color-scheme: light;
 }
 
@@ -55,24 +67,37 @@ button {
   font: inherit;
   color: inherit;
 }
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.ic {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* ---------- liquid glass ---------- */
 
 .glass {
   position: relative;
   isolation: isolate;
-  overflow: hidden;
   background: var(--glass);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
-  border: 1.5px solid var(--glass-edge);
-  border-radius: var(--radius);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  backdrop-filter: blur(32px) saturate(190%);
+  border: 1px solid var(--glass-edge);
   box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -18px 30px -24px rgba(255, 255, 255, 0.35),
-    0 28px 60px -18px var(--shadow);
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -20px 40px -30px rgba(255, 255, 255, 0.3),
+    0 30px 70px -20px var(--shadow);
 }
-/* The curved light streak across the top that makes glass look like glass. */
 .glass::before {
   content: '';
   position: absolute;
@@ -81,8 +106,8 @@ button {
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(130% 70% at 15% -10%, var(--glass-shine), transparent 60%),
-    linear-gradient(170deg, var(--glass-shine), transparent 35%);
+    radial-gradient(140% 80% at 10% -20%, var(--glass-shine), transparent 55%),
+    linear-gradient(165deg, var(--glass-shine), transparent 30%);
 }
 @media (prefers-reduced-transparency: reduce) {
   .glass {
@@ -114,75 +139,120 @@ button {
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity 0.3s;
+  transform: scale(1.04);
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 body[data-camera='on'][data-state='ready'] #video,
-body[data-state='settings'][data-camera='on'] #video {
+body[data-camera='on'][data-state='settings'] #video {
   opacity: 1;
+  transform: none;
 }
 body[data-photo='on'] #photo {
   opacity: 1;
+  transform: none;
 }
 .veil {
   position: absolute;
   inset: 0;
-  background: var(--veil);
+  background: linear-gradient(to bottom, var(--veil), transparent 30%, transparent 55%, var(--veil));
 }
 .aurora span {
   position: absolute;
-  width: 70vmax;
-  height: 70vmax;
+  width: 75vmax;
+  height: 75vmax;
   border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.55;
-  animation: drift 18s ease-in-out infinite alternate;
+  filter: blur(80px);
+  opacity: 0.5;
+  animation: drift 20s ease-in-out infinite alternate;
 }
 .aurora span:nth-child(1) {
-  background: #3b5bdb;
-  top: -25vmax;
-  left: -20vmax;
+  background: #3348c8;
+  top: -30vmax;
+  left: -25vmax;
 }
 .aurora span:nth-child(2) {
-  background: #c2255c;
-  bottom: -30vmax;
-  right: -25vmax;
-  animation-delay: -6s;
+  background: #b0205a;
+  bottom: -35vmax;
+  right: -30vmax;
+  animation-delay: -7s;
 }
 .aurora span:nth-child(3) {
-  background: #e8a500;
-  top: 30%;
-  left: 30%;
+  background: #d99a00;
+  top: 35%;
+  left: 25%;
   width: 45vmax;
   height: 45vmax;
-  animation-delay: -12s;
+  opacity: 0.35;
+  animation-delay: -13s;
 }
 :root[data-theme='light'] .aurora span {
-  opacity: 0.35;
+  opacity: 0.28;
 }
 @keyframes drift {
   to {
-    transform: translate(12vmax, 8vmax) scale(1.15);
+    transform: translate(14vmax, 9vmax) scale(1.2);
   }
 }
 
 #flash {
   position: fixed;
   inset: 0;
-  z-index: 4;
+  z-index: 6;
   background: #fff;
   opacity: 0;
   pointer-events: none;
 }
 #flash.go {
-  animation: flash 0.35s ease-out;
+  animation: flash 0.4s ease-out;
 }
 @keyframes flash {
   from {
-    opacity: 0.85;
+    opacity: 0.9;
   }
 }
 
-/* ---------- status + message ---------- */
+/* ---------- glowing screen edge (listening / thinking) ---------- */
+
+.edge {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: 40px;
+  padding: 5px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  background: conic-gradient(from var(--angle), var(--fg), var(--g2), var(--g3), var(--g4), var(--fg));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  animation: turn 3.2s linear infinite;
+}
+.edge-soft {
+  padding: 16px;
+  filter: blur(18px);
+}
+body[data-state='thinking'] .edge {
+  opacity: 1;
+}
+body.recording .edge {
+  background: var(--fg);
+  opacity: calc(0.45 + var(--level) * 0.55);
+  transition: opacity 0.08s linear;
+}
+@keyframes turn {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* ---------- layout ---------- */
 
 .hud {
   position: fixed;
@@ -190,94 +260,315 @@ body[data-photo='on'] #photo {
   z-index: 1;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: var(--gap);
   padding: max(var(--gap), env(safe-area-inset-top)) max(var(--gap), env(safe-area-inset-right))
     max(var(--gap), env(safe-area-inset-bottom)) max(var(--gap), env(safe-area-inset-left));
   pointer-events: none;
 }
+
 .pill {
   align-self: center;
   max-width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.35em;
-  padding: 0.18em 0.7em 0.22em;
+  gap: 0.3em;
+  padding: 0.14em 0.6em 0.18em 0.45em;
   border-radius: 999px;
-  font-size: clamp(32pt, 11vw, 60pt);
+  font-size: clamp(32pt, 9vw, 46pt);
   line-height: 1.1;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   text-align: center;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  transition:
+    opacity 0.3s,
+    transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+body[data-state='start'] .pill {
+  opacity: 0;
+  transform: translateY(-120%);
 }
 .orb {
   flex: none;
-  width: 0.55em;
-  height: 0.55em;
+  width: 0.5em;
+  height: 0.5em;
   border-radius: 50%;
   background: var(--fg);
-  box-shadow: 0 0 0.4em var(--fg);
+  box-shadow: 0 0 0.5em var(--fg);
 }
-.card {
+body.recording .orb {
+  animation: pulse 1s ease-in-out infinite;
+}
+body[data-state='thinking'] .orb {
+  background: conic-gradient(from var(--angle), var(--fg), var(--g2), var(--g3), var(--g4), var(--fg));
+  animation: turn 1.2s linear infinite;
+}
+body[data-state='answer'] .orb {
+  border-radius: 0.14em;
+  transform: rotate(45deg) scale(0.9);
+}
+@keyframes pulse {
+  50% {
+    transform: scale(1.45);
+    opacity: 0.55;
+  }
+}
+
+/* ---------- the middle: one picture per state ---------- */
+
+.focus {
   flex: 1;
   min-height: 0;
-  display: flex;
-  padding: clamp(16px, 4vmin, 36px);
-  transition: box-shadow 0.25s;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.focus > * {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: scale(0.88);
+  transition:
+    opacity 0.35s ease,
+    transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+body[data-state='start'] .brand,
+body[data-state='ready'] .viewfinder,
+body[data-state='ready'] .shutter,
+body[data-state='listening'] .voice,
+body[data-state='thinking'] .think {
+  opacity: 1;
+  transform: none;
+}
+
+/* Start: logo and name */
+.brand {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  text-align: center;
+}
+.logo {
+  width: min(34vmin, 150px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: min(16vmin, 72px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 60px -10px var(--fg),
+    0 30px 70px -20px var(--shadow);
+}
+.logo .ic {
+  stroke-width: 1.8;
+}
+.wordmark {
+  font-size: clamp(32pt, 10vw, 54pt);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  max-width: 11ch;
+  text-shadow: 0 2px 24px var(--bg);
+}
+
+/* Ready: viewfinder corners + shutter ring */
+.viewfinder {
+  place-self: stretch;
+  position: relative;
+  margin: 4%;
+}
+.viewfinder i {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border: 5px solid var(--fg);
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
+}
+.viewfinder i:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 22px;
+}
+.viewfinder i:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-left: 0;
+  border-bottom: 0;
+  border-top-right-radius: 22px;
+}
+.viewfinder i:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+  border-bottom-left-radius: 22px;
+}
+.viewfinder i:nth-child(4) {
+  bottom: 0;
+  right: 0;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 22px;
+}
+.shutter {
+  width: min(30vmin, 128px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 6px solid var(--fg);
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 10px 40px rgba(0, 0, 0, 0.45);
+}
+.shutter span {
+  width: 80%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--fg);
+  animation: breathe 2.6s ease-in-out infinite;
+}
+@keyframes breathe {
+  50% {
+    transform: scale(0.9);
+  }
+}
+
+/* Listening: rings that grow with your voice */
+.voice,
+.think {
+  position: relative;
+  width: min(48vmin, 230px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+.voice .ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--fg);
+  transform: scale(calc(0.55 + var(--level) * var(--k)));
+  transition: transform 0.08s linear;
+}
+.voice .r1 {
+  --k: 0.5;
+  opacity: 0.9;
+}
+.voice .r2 {
+  --k: 0.8;
+  opacity: 0.55;
+}
+.voice .r3 {
+  --k: 1.1;
+  opacity: 0.3;
+}
+body:not(.recording) .voice .ring {
+  animation: idle 2.4s ease-in-out infinite;
+}
+@keyframes idle {
+  50% {
+    transform: scale(0.7);
+  }
+}
+.core {
+  position: relative;
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: min(10vmin, 48px);
+  box-shadow: 0 0 50px -6px var(--fg);
+}
+.core .ic {
+  stroke-width: 2.4;
+}
+
+/* Thinking: a glowing, turning orb */
+.think .blob {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  background: conic-gradient(from var(--angle), var(--fg), var(--g2), var(--g3), var(--g4), var(--fg));
+  filter: blur(22px);
+  animation:
+    turn 2.4s linear infinite,
+    morph 3s ease-in-out infinite;
+}
+.think .core {
+  background: var(--glass);
+  color: var(--fg);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.think .core .ic {
+  fill: currentColor;
+  stroke: none;
+  animation: breathe 1.4s ease-in-out infinite;
+}
+@keyframes morph {
+  33% {
+    border-radius: 44% 56% 52% 48%;
+    transform: scale(1.06);
+  }
+  66% {
+    border-radius: 56% 44% 46% 54%;
+    transform: scale(0.95);
+  }
+}
+
+/* ---------- the message sheet ---------- */
+
+.sheet {
+  flex: none;
+  border-radius: 36px;
+  padding: 14px clamp(20px, 5vw, 34px) clamp(22px, 4vmin, 32px);
+  transition: box-shadow 0.3s;
+}
+.grabber {
+  display: block;
+  width: 44px;
+  height: 5px;
+  margin: 0 auto 12px;
+  border-radius: 99px;
+  background: var(--fg);
+  opacity: 0.35;
 }
 #message {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  max-height: 60dvh;
   overflow: hidden;
   font-size: var(--text-size);
-  line-height: 1.22;
-  text-align: center;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  text-align: start;
   overflow-wrap: break-word;
   hyphens: manual;
 }
 #message > span {
   display: block;
-  max-width: 100%;
+  animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+body[data-state='start'] #message {
+  text-align: center;
+}
+body.disclaimer .sheet,
+body.recording .sheet {
+  box-shadow:
+    inset 0 0 0 4px var(--fg),
+    0 30px 70px -20px var(--shadow);
 }
 
-/* State accents */
-body[data-state='listening'].recording .orb {
-  animation: pulse 1s ease-in-out infinite;
-}
-body.recording .card {
-  box-shadow:
-    inset 0 0 0 5px var(--fg),
-    0 28px 60px -18px var(--shadow);
-}
-body[data-state='thinking'] .orb {
-  background: transparent;
-  box-shadow: none;
-  border: 0.12em solid var(--fg);
-  border-right-color: transparent;
-  animation: spin 0.9s linear infinite;
-}
-body[data-state='answer'] .orb {
-  border-radius: 0.12em;
-  transform: rotate(45deg);
-}
-body.disclaimer .card {
-  box-shadow:
-    inset 0 0 0 5px var(--fg),
-    0 28px 60px -18px var(--shadow);
-}
-@keyframes pulse {
-  50% {
-    transform: scale(1.5);
-    opacity: 0.6;
-  }
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before {
@@ -304,44 +595,64 @@ body.disclaimer .card {
 #stage:focus-visible {
   outline: 6px solid var(--fg);
   outline-offset: -12px;
-  border-radius: calc(var(--radius) + 8px);
+  border-radius: 40px;
 }
+
+/* ---------- big buttons (screen reader mode, welcome, settings) ---------- */
 
 .big {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4em;
   min-height: 88px;
-  padding: 12px 20px;
+  padding: 12px 28px;
+  border-radius: 999px;
   font-size: 32pt;
   line-height: 1.1;
   text-align: center;
   cursor: pointer;
   touch-action: manipulation;
+  transition: transform 0.15s;
 }
-.big:focus-visible {
+.big:focus-visible,
+.row:focus-visible {
   outline: 6px solid var(--fg);
   outline-offset: 4px;
 }
-.big:active {
-  transform: scale(0.98);
+.big:active,
+.row:active {
+  transform: scale(0.97);
+}
+.primary,
+.done {
+  background: var(--fg);
+  color: var(--bg);
+  border: 0;
+  box-shadow: 0 20px 50px -18px var(--fg);
+}
+.primary::before,
+.done::before {
+  display: none;
 }
 
-/* Welcome screen: second big button for screen reader users */
 #welcome-sr {
   position: fixed;
   z-index: 6;
   left: max(var(--gap), env(safe-area-inset-left));
   right: max(var(--gap), env(safe-area-inset-right));
   bottom: max(var(--gap), env(safe-area-inset-bottom));
-  height: 20vh;
   display: none;
 }
 body[data-state='start']:not(.sr) #welcome-sr {
   display: flex;
 }
+#welcome-sr {
+  border-radius: 36px;
+}
+/* --welcome-h is the button's real height (it may wrap onto two lines). */
 body[data-state='start']:not(.sr) .hud {
-  padding-bottom: calc(20vh + 2 * var(--gap));
+  padding-bottom: calc(var(--welcome-h, 88px) + 2 * var(--gap) + env(safe-area-inset-bottom));
 }
 
 /* ---------- screen reader mode ---------- */
@@ -349,7 +660,8 @@ body[data-state='start']:not(.sr) .hud {
 #sr-panel {
   display: none;
 }
-body.sr #stage {
+body.sr #stage,
+body.sr .focus {
   display: none;
 }
 body.sr #sr-panel {
@@ -358,19 +670,34 @@ body.sr #sr-panel {
   left: max(var(--gap), env(safe-area-inset-left));
   right: max(var(--gap), env(safe-area-inset-right));
   bottom: max(var(--gap), env(safe-area-inset-bottom));
-  height: 48%;
+  height: 46%;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
 }
 body.sr .hud {
-  bottom: 48%;
+  bottom: 46%;
+}
+body.sr .sheet {
+  flex: 1;
+  min-height: 0;
 }
 body.sr #sr-main {
   flex: 2;
+  border-radius: 44px;
+}
+#sr-main .ic {
+  display: none;
+}
+body[data-state='ready'] #sr-main .ic-cam,
+body[data-state='start'] #sr-main .ic-cam,
+body[data-state='answer'] #sr-main .ic-mic,
+body[data-state='listening'] #sr-main .ic-mic,
+body[data-state='thinking'] #sr-main .ic-spark {
+  display: block;
 }
 body.sr[data-state='thinking'] #sr-main {
-  opacity: 0.75;
+  opacity: 0.7;
 }
 .sr-row {
   flex: 1;
@@ -383,20 +710,11 @@ body.sr[data-state='thinking'] #sr-main {
 .sr-row .big {
   flex: 1;
   min-width: 0;
+  border-radius: 36px;
+  padding-inline: 12px;
 }
 .sr-row [hidden] {
   display: none;
-}
-@media (orientation: landscape) {
-  body.sr .hud {
-    bottom: 0;
-    right: 50%;
-  }
-  body.sr #sr-panel {
-    top: max(var(--gap), env(safe-area-inset-top));
-    left: 50%;
-    height: auto;
-  }
 }
 
 /* ---------- settings ---------- */
@@ -405,32 +723,120 @@ body.sr[data-state='thinking'] #sr-main {
   position: fixed;
   inset: 0;
   z-index: 10;
-  display: grid;
-  grid-auto-rows: 1fr;
-  gap: 12px;
+  display: flex;
+  align-items: flex-end;
   padding: max(var(--gap), env(safe-area-inset-top)) max(var(--gap), env(safe-area-inset-right))
     max(var(--gap), env(safe-area-inset-bottom)) max(var(--gap), env(safe-area-inset-left));
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  background: color-mix(in srgb, var(--bg) 50%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: fade 0.25s ease;
 }
 #settings[hidden] {
   display: none;
 }
-#settings .big {
-  min-height: 0;
-  --radius: 28px;
+.settings-sheet {
+  width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  border-radius: 40px;
+  animation: rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-#settings .done {
-  background: var(--fg);
-  color: var(--bg);
+.settings-sheet h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  margin: 0 6px 4px;
+  font-size: 32pt;
+  line-height: 1.1;
 }
+.rows {
+  display: grid;
+  gap: 10px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  min-height: 84px;
+  padding: 8px 22px;
+  border-radius: 26px;
+  border: 1px solid color-mix(in srgb, var(--fg) 22%, transparent);
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+  font-size: 32pt;
+  line-height: 1.1;
+  text-align: start;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s;
+}
+.row .ic {
+  opacity: 0.85;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- landscape: picture on one side, words on the other ---------- */
+
 @media (orientation: landscape) {
-  #settings {
+  .hud {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: calc(var(--gap) * 1.5);
+  }
+  .pill {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .focus {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .sheet {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: end;
+  }
+  #message {
+    max-height: calc(100dvh - 2 * var(--gap) - 80px);
+  }
+  body[data-state='start'] .focus {
+    grid-row: 1 / 3;
+  }
+  body.sr .hud {
+    bottom: 0;
+    right: 50%;
+    grid-template-columns: 1fr;
+  }
+  body.sr .sheet {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  body.sr #sr-panel {
+    top: max(var(--gap), env(safe-area-inset-top));
+    left: 50%;
+    height: auto;
+  }
+  .settings-sheet {
+    display: grid;
     grid-template-columns: 1fr 1fr;
   }
-  #settings .done {
-    grid-column: span 2;
+  .settings-sheet h2 {
+    display: none;
+  }
+  .rows {
+    display: contents;
+  }
+  .row,
+  .done {
+    min-height: 72px;
   }
 }
 

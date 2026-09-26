@@ -4,5 +4,14 @@ import { available } from './_lib/ai.js';
 export default function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const a = available();
-  res.status(200).json({ ask: a.ask, transcribe: a.transcribe, speak: a.speak, gemini: a.gemini, openai: a.openai, mock: a.mock });
+  res.status(200).json({
+    ask: a.ask,
+    transcribe: a.transcribe,
+    speak: a.speak,
+    voice: a.voice,
+    gemini: a.gemini,
+    openai: a.openai,
+    elevenlabs: a.elevenlabs,
+    mock: a.mock,
+  });
 }

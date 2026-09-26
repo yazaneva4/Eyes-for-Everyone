@@ -4,7 +4,7 @@
 import { t, setLang, LANG_ORDER } from './i18n.js';
 import { settings, save, applyLook, RATES, SIZES, THEMES, step } from './settings.js';
 import { sounds, vibrate } from './sounds.js';
-import { speak, stopSpeaking, unlockVoice, enableServerVoice, splitSentences } from './voice.js';
+import { speak, stopSpeaking, unlockVoice, enableServerVoice, splitSentences, preload } from './voice.js';
 import { startCamera, stopCamera, capture, toJpegBase64, checkQuality, cameraRunning } from './camera.js';
 import { startListening, useServerStt } from './listen.js';
 import { matchCommand } from './commands.js';
@@ -26,6 +26,7 @@ const el = {
   srRepeat: $('sr-repeat'),
   srSettings: $('sr-settings'),
   settings: $('settings'),
+  wordmark: $('wordmark'),
   liveStatus: $('live-status'),
   liveMessage: $('live-message'),
 };
@@ -103,6 +104,9 @@ function flash() {
   el.flash.classList.add('go');
 }
 
+// Buttons keep their icon; only the words in .v change.
+const label = (btn, text) => ((btn.querySelector('.v') || btn).textContent = text);
+
 function updateLabels() {
   const prompt = {
     start: t('tapToStart'),
@@ -113,7 +117,8 @@ function updateLabels() {
     settings: '',
   }[state];
   el.stage.setAttribute('aria-label', prompt || t('appName'));
-  el.welcomeSr.textContent = t('srModeButton');
+  label(el.welcomeSr, t('srModeButton'));
+  el.wordmark.textContent = t('appName');
   const main = {
     start: t('start'),
     ready: t('sr.takePhoto'),
@@ -121,11 +126,11 @@ function updateLabels() {
     thinking: t('sr.wait'),
     answer: t('sr.askAgain'),
   }[state];
-  if (main) el.srMain.textContent = main;
+  if (main) label(el.srMain, main);
   el.srMain.setAttribute('aria-disabled', state === 'thinking' ? 'true' : 'false');
-  el.srNew.textContent = t('sr.newPhoto');
-  el.srRepeat.textContent = t('sr.repeat');
-  el.srSettings.textContent = t('sr.settings');
+  label(el.srNew, t('sr.newPhoto'));
+  label(el.srRepeat, t('sr.repeat'));
+  label(el.srSettings, t('sr.settings'));
   el.srNew.hidden = !['listening', 'thinking', 'answer'].includes(state);
   el.srRepeat.hidden = state !== 'answer';
   el.srSettings.hidden = !['start', 'ready'].includes(state);
@@ -359,6 +364,7 @@ async function listen(intro) {
   vibrate(60);
   el.body.classList.add('recording');
   recorderP = startListening(settings.lang, () => my === op && state === 'listening' && finishListening());
+  recorderP.then((rec) => meter(rec, my)).catch(() => {});
   recorderP.catch(async () => {
     if (my !== op) return;
     recorderP = null;
@@ -367,6 +373,18 @@ async function listen(intro) {
     await say(t('noMic'));
     if (my === op) ask('', my);
   });
+}
+
+// Feeds the microphone loudness to the CSS so the rings and screen edge move with your voice.
+function meter(rec, my) {
+  let smooth = 0;
+  const tick = () => {
+    if (my !== op || state !== 'listening') return el.body.style.setProperty('--level', '0');
+    smooth = smooth * 0.7 + (rec.level?.() || 0) * 0.3;
+    el.body.style.setProperty('--level', smooth.toFixed(3));
+    requestAnimationFrame(tick);
+  };
+  tick();
 }
 
 async function finishListening() {
@@ -500,6 +518,7 @@ function changeLanguage() {
   settings.lang = LANG_ORDER[(LANG_ORDER.indexOf(settings.lang) + 1) % LANG_ORDER.length];
   setLang(settings.lang);
   save();
+  preloadPrompts();
 }
 
 // ---------- settings screen ----------
@@ -530,13 +549,13 @@ const SETTING_ACTIONS = {
 
 function renderSettings() {
   const b = (k) => el.settings.querySelector(`[data-set="${k}"]`);
-  b('lang').textContent = t('languageName');
-  b('speed').textContent = t('settings.speed', { n: `${settings.rate}×` });
-  b('size').textContent = t('settings.size', { n: settings.textPt });
-  b('theme').textContent = t(`themeNames.${settings.theme}`);
-  b('sr').textContent = t('settings.sr', { v: t(settings.srMode ? 'settings.on' : 'settings.off') });
-  b('done').textContent = t('settings.done');
-  el.settings.setAttribute('aria-label', t('status.settings'));
+  label(b('lang'), t('languageName'));
+  label(b('speed'), t('settings.speed', { n: `${settings.rate}×` }));
+  label(b('size'), t('settings.size', { n: settings.textPt }));
+  label(b('theme'), t(`themeNames.${settings.theme}`));
+  label(b('sr'), t('settings.sr', { v: t(settings.srMode ? 'settings.on' : 'settings.off') }));
+  label(b('done'), t('settings.done'));
+  label($('settings-title'), t('status.settings'));
 }
 
 function openSettings() {
@@ -547,7 +566,7 @@ function openSettings() {
   setState('settings');
   el.settings.hidden = false;
   renderSettings();
-  el.settings.querySelector('button').focus();
+  el.settings.querySelector('.row').focus();
   say(t('settings.open'), { display: false });
 }
 
@@ -616,19 +635,31 @@ async function checkServer() {
   try {
     const h = await (await fetch('/api/health')).json();
     useServerStt(h.transcribe);
-    enableServerVoice(h.speak);
+    enableServerVoice(h.voice === 'elevenlabs' ? 'always' : h.speak ? 'fallback' : false);
+    preloadPrompts();
   } catch {
     useServerStt(false);
   }
 }
 
+function preloadPrompts() {
+  preload([t('ready'), t('photoTaken'), t('askNow'), t('tapAgain'), t('newPhoto')], settings.lang);
+}
+
 function showStart() {
   ++op;
   setState('start');
-  show(`${t('appName')}. ${t('tapToStart')}`);
+  show(t('tapToStart'));
 }
 
 // ---------- boot ----------
+
+// Keep the message sheet clear of the welcome button, however many lines it wraps to.
+new ResizeObserver(() => {
+  el.body.style.setProperty('--welcome-h', `${el.welcomeSr.offsetHeight || 88}px`);
+  const span = el.message.firstElementChild;
+  if (span && !paging) fit(span.textContent);
+}).observe(el.welcomeSr);
 
 if (new URLSearchParams(location.search).get('sr') === '1') settings.srMode = true;
 setLang(settings.lang);

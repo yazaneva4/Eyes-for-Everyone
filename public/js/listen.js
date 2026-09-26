@@ -38,11 +38,34 @@ export async function startListening(lang, onAutoStop) {
   throw new Error('no-speech-input');
 }
 
+// How loud the microphone is right now, from 0 (silent) to 1 (loud).
+function makeMeter(stream) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const data = new Uint8Array(analyser.fftSize);
+    return {
+      level() {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (const v of data) sum += ((v - 128) / 128) ** 2;
+        return Math.min(1, Math.sqrt(sum / data.length) * 5);
+      },
+      close: () => ctx.close().catch(() => {}),
+    };
+  } catch {
+    return { level: () => 0, close() {} };
+  }
+}
+
 async function recordForServer(lang, mime, onAutoStop) {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
+  const meter = makeMeter(stream);
   const chunks = [];
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const started = Date.now();
@@ -50,6 +73,7 @@ async function recordForServer(lang, mime, onAutoStop) {
   const timer = setTimeout(() => onAutoStop?.(), MAX_MS);
   const release = () => {
     clearTimeout(timer);
+    meter.close();
     stream.getTracks().forEach((t) => t.stop());
   };
   const stopped = () =>
@@ -60,6 +84,7 @@ async function recordForServer(lang, mime, onAutoStop) {
     });
 
   return {
+    level: meter.level,
     async stop(signal) {
       await stopped();
       release();
