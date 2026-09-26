@@ -6,7 +6,9 @@ import { settings } from './settings.js';
 import { LOCALES } from './i18n.js';
 
 let voices = [];
-let serverVoice = false; // false | 'fallback' | 'always'
+// ElevenLabs is the voice for everything, from the very first word; the app turns it off only if
+// the server says there is no ElevenLabs key. The phone's own voice is just an emergency backup.
+let serverVoice = 'always'; // false | 'fallback' | 'always'
 // Recently spoken sentences, kept in memory only so repeated prompts play instantly.
 const cache = new Map();
 const CACHE_MAX = 60;
@@ -162,14 +164,14 @@ function playUrl(url, my) {
       resolve(ok);
     };
     const watch = setInterval(() => my !== token && (audio.pause(), finish(true)), 100);
-    // Never wait forever: if the clip has not started within 4 s (e.g. the browser holds back
+    // Never wait forever: if the clip has not started within 8 s (e.g. the browser holds back
     // sound in a tab that is not on screen), give up and let the phone's own voice say it.
     const stall = setTimeout(() => {
       if (!started) {
         audio.pause();
         finish(false);
       }
-    }, 4000);
+    }, 8000);
     audio.onended = () => (clearTimeout(stall), finish(true));
     audio.onerror = () => (clearTimeout(stall), finish(started));
     audio.src = url;

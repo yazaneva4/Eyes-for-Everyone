@@ -469,12 +469,13 @@ body[data-state='thinking'] .orb3d {
 }
 .compass .cardinal {
   position: absolute;
+  opacity: 0.8;
   left: 50%;
   top: 50%;
   font-size: 16pt;
   font-weight: 800;
   line-height: 1;
-  --r: calc(min(52vmin, 240px) / 2 - 72px);
+  --r: calc(min(52vmin, 240px) / 2 - 18px); /* on the rim */
   transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--r) * -1)) rotate(calc(var(--a) * -1));
   font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
 }
@@ -496,7 +497,7 @@ body[data-state='thinking'] .orb3d {
   left: 50%;
   top: 50%;
   font-size: 34px;
-  --r: calc(min(52vmin, 240px) / 2 - 38px);
+  --r: calc(min(52vmin, 240px) / 2 - 46px); /* just inside the rim, where the arrow points */
   transform: translate(-50%, -50%) rotate(var(--target, 0deg)) translateY(calc(var(--r) * -1)) rotate(calc(var(--target, 0deg) * -1 + var(--heading, 0deg)));
   display: grid;
   place-items: center;
@@ -512,6 +513,34 @@ body[data-state='thinking'] .orb3d {
 body[data-running='qibla'] .compass .qibla-mark {
   opacity: 1;
 }
+/* The live pointer: a big arrow that always points at the Kaaba */
+.compass .needle {
+  position: absolute;
+  inset: 26%;
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  font-size: min(13vmin, 58px);
+  color: var(--fg);
+  transform: rotate(var(--turn, 0deg));
+  transition:
+    transform 0.12s linear,
+    opacity 0.3s;
+  filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.55));
+  opacity: 0;
+  pointer-events: none;
+}
+.compass .needle .ic {
+  fill: currentColor;
+  stroke: none;
+}
+body[data-running='qibla'] .compass .needle {
+  opacity: 1;
+}
+body[data-facing='yes'] .compass .needle {
+  filter: drop-shadow(0 0 18px var(--fg));
+}
+
 /* No compass on this device: do not draw one (it could not point the right way) */
 body[data-running='qibla-none'] .compass {
   display: none;
@@ -526,10 +555,10 @@ body[data-facing='yes'] .compass .qibla-mark {
 }
 @media (min-width: 1000px) and (orientation: landscape) {
   .compass .cardinal {
-    --r: 78px;
+    --r: 132px;
   }
   .compass .qibla-mark {
-    --r: 112px;
+    --r: 104px;
   }
 }
 

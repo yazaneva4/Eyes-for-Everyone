@@ -977,10 +977,14 @@ async function runQibla(my) {
   let lastText = '';
   let warnedCalibration = false;
   let facts = null;
+  // The pointer's angle, unwrapped so it always turns the short way (no spin from 179° to -179°).
+  let pointer = null;
   // startQibla asks the iPhone for compass permission right now, inside the touch that got us here.
   const pending = startQibla(({ heading, turn, accuracy }) => {
     if (my !== op) return;
     el.body.style.setProperty('--heading', `${heading.toFixed(1)}deg`);
+    pointer = pointer == null ? turn : pointer + ((((turn - pointer) % 360) + 540) % 360) - 180;
+    el.body.style.setProperty('--turn', `${pointer.toFixed(1)}deg`);
     const off = Math.abs(turn);
     const now = Date.now();
     // iPhone tells us when the compass is unsure (accuracy in degrees, -1 = unknown).
@@ -1191,7 +1195,11 @@ async function checkServer() {
 }
 
 function preloadPrompts() {
-  preload([readyPrompt(), t('tapAgain'), t('newPhoto'), t('thinking'), t('qiblaLocating'), t('facing'), t('almost')], settings.lang);
+  // Fetch the ElevenLabs audio for the common phrases now, so they play instantly later.
+  preload(
+    [t('disclaimer'), readyPrompt(), t('ready'), t('tapAgain'), t('newPhoto'), t('askNow'), t('qiblaLocating'), t('facing'), t('almost'), t('noAnswer'), t('cancelled')],
+    settings.lang
+  );
 }
 
 function showStart() {
