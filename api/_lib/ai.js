@@ -248,14 +248,15 @@ async function geminiTranscribe(buf, mime, lang) {
     [
       { inlineData: { mimeType: mime, data: buf.toString('base64') } },
       {
-        text: `Transcribe the speech in this audio exactly, in the language spoken (most likely ${name}). Return only the spoken words, nothing else. If there is no speech, return an empty reply.`,
+        text: `Transcribe the human speech in this audio exactly, in the language spoken (most likely ${name}). Return only the spoken words, nothing else. If there is no clear human speech (silence, noise, music), reply with exactly: [no speech]. Never invent words.`,
       },
     ],
     null,
     8192,
     true // silence is a valid, empty transcript
   );
-  return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
+  const out = text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
+  return /^\[?\s*no speech\s*\]?\.?$/i.test(out) ? '' : out;
 }
 
 export async function transcribe({ audio, mime, lang }) {

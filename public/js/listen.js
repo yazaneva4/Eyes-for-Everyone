@@ -54,9 +54,10 @@ function makeMeter(stream) {
         return Math.min(1, Math.sqrt(sum / data.length) * 5);
       },
       close: () => ctx.close().catch(() => {}),
+      works: true,
     };
   } catch {
-    return { level: () => 0, close() {} };
+    return { level: () => 0, close() {}, works: false };
   }
 }
 
@@ -69,10 +70,14 @@ async function recordForServer(lang, mime, onAutoStop) {
   const chunks = [];
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const started = Date.now();
+  // Remember the loudest moment, so a silent recording is never sent (AI can "hear" words in silence).
+  let peak = 0;
+  const peakTimer = setInterval(() => (peak = Math.max(peak, meter.level())), 80);
   rec.start(250);
   const timer = setTimeout(() => onAutoStop?.(), MAX_MS);
   const release = () => {
     clearTimeout(timer);
+    clearInterval(peakTimer);
     meter.close();
     stream.getTracks().forEach((t) => t.stop());
   };
@@ -92,6 +97,7 @@ async function recordForServer(lang, mime, onAutoStop) {
       const blob = new Blob(chunks, { type: rec.mimeType || mime || 'audio/webm' });
       chunks.length = 0;
       if (ms < 700 || blob.size < 2000) return '';
+      if (meter.works && peak < 0.08) return ''; // nothing louder than room noise was heard
       const r = await fetch('/api/transcribe', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
