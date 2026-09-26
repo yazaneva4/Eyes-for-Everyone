@@ -14,6 +14,7 @@ import { initGlass } from './glass.js';
 import { startLight, lightWord, startQibla, centerColor, nameColor, timeText, dateTexts, batteryInfo } from './sensors.js';
 
 const TIMING = { LONG: 700, SETTINGS: 3000, DOUBLE: 320, DEBOUNCE: 500, ASK_TIMEOUT: 35000 };
+const MIN_PT = 16;
 const MODES = ['ask', 'read', 'money', 'color', 'light', 'qibla'];
 // Laptop or PC with a mouse or trackpad: speak keyboard hints instead of touch gestures.
 const DESKTOP = matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -73,8 +74,8 @@ function setState(s) {
 
 const overflows = (inner) => inner.offsetHeight > el.message.clientHeight + 1 || inner.scrollWidth > el.message.clientWidth + 1;
 
-// Shows text as big as the chosen size, shrinking toward 32pt only if it does not fit.
-// Returns the size used, or 0 if it does not fit even at 32pt.
+// Shows text at the chosen size, shrinking toward MIN_PT only if it does not fit.
+// Returns the size used, or 0 if it does not fit even at MIN_PT.
 // live = a reading that changes several times a second (light, Qibla): update the words in place, no animation.
 function fit(text, maxPt = settings.textPt, live = false) {
   let span = live && el.message.firstElementChild;
@@ -87,7 +88,7 @@ function fit(text, maxPt = settings.textPt, live = false) {
   }
   let pt = maxPt;
   el.message.style.fontSize = `${pt}pt`;
-  while (overflows(span) && pt > 32) {
+  while (overflows(span) && pt > MIN_PT) {
     pt -= 2;
     el.message.style.fontSize = `${pt}pt`;
   }
@@ -98,11 +99,11 @@ let paging = false;
 let pagePt = 32;
 function show(text) {
   paging = !fit(text);
-  // Too long even at 32pt: show one sentence at a time, in step with the voice,
+  // Too long even at the smallest size: show one sentence at a time, in step with the voice,
   // all at the same size so the text does not jump around.
   if (paging) {
     const parts = splitSentences(text);
-    pagePt = Math.min(...parts.map((p) => fit(p) || 32));
+    pagePt = Math.min(...parts.map((p) => fit(p) || MIN_PT));
     fit(parts[0], pagePt);
   }
   if (settings.srMode) announce(text);
@@ -157,11 +158,11 @@ function updateLabels() {
     ready: mode === 'ask' ? t('sr.takePhoto') : t(`modes.${mode}.name`),
     listening: t('sr.stop'),
     thinking: t('sr.wait'),
-    answer: t('sr.askAgain'),
+    answer: t('sr.newPhoto'),
   }[state];
   if (main) label(el.srMain, main);
   el.srMain.setAttribute('aria-disabled', state === 'thinking' ? 'true' : 'false');
-  label(el.srNew, t('sr.newPhoto'));
+  label(el.srNew, state === 'answer' ? t('sr.askAgain') : t('sr.newPhoto'));
   label(el.srRepeat, t('sr.repeat'));
   label(el.srSettings, t('sr.settings'));
   label(el.srMode, t('sr.mode', { m: t(`modes.${mode}.name`) }));
@@ -268,7 +269,7 @@ function bindGestures() {
     lastAction = Date.now();
     onTap();
   });
-  el.srNew.addEventListener('click', onDoubleTap);
+  el.srNew.addEventListener('click', onDoubleTap); // in ANSWER: ask more about this photo
   el.srRepeat.addEventListener('click', onLongPress);
   el.srSettings.addEventListener('click', openSettings);
   el.srMode.addEventListener('click', () => changeMode(1));
@@ -336,7 +337,9 @@ function bindGestures() {
       return rawTap();
     }
     const key = e.key.toLowerCase();
-    if (key === 'n' || e.key === 'Escape') onDoubleTap();
+    if (key === 'a' && state === 'answer') listen(t('askNow'));
+    else if (key === 'n') state === 'answer' ? retake() : onDoubleTap();
+    else if (e.key === 'Escape') onDoubleTap();
     else if (key === 'r') onLongPress();
     else if (key === 's') openSettings();
     else if (key === 'o') openPicker();
@@ -361,13 +364,14 @@ function onTap() {
     case 'listening':
       return prompting ? stopSpeaking() : finishListening();
     case 'answer':
-      return listen(t('askNow'));
+      return retake(); // tap after an answer = take the next photo straight away
     default: // thinking: ignore every tap
   }
 }
 
 function onDoubleTap() {
-  if (['listening', 'thinking', 'answer'].includes(state)) return newPhoto();
+  if (state === 'answer') return listen(t('askNow')); // ask more about the same photo
+  if (['listening', 'thinking'].includes(state)) return newPhoto();
   if (state === 'ready') {
     if (sensor) return stopSensorsAndSay();
     return say(readyPrompt());
@@ -576,6 +580,31 @@ async function goReady(prefix) {
   }
   await say(prompt);
   await cam;
+}
+
+// After an answer: back to the camera and snap the next photo in one tap (same mode).
+async function retake() {
+  cancelWork();
+  const my = ++op;
+  photo = null;
+  history = [];
+  el.photo.removeAttribute('src');
+  setState('ready');
+  show(t('newPhoto'));
+  try {
+    await startCamera(el.video);
+    el.body.dataset.camera = 'on';
+  } catch {
+    if (my !== op) return;
+    sounds.error();
+    return say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
+  }
+  // Give the camera a moment to set its exposure and focus before the picture.
+  await new Promise((r) => setTimeout(r, 700));
+  if (my !== op || state !== 'ready') return;
+  if (mode === 'color') return sayColor();
+  if (['light', 'qibla'].includes(mode)) return say(readyPrompt());
+  takePhoto();
 }
 
 function newPhoto() {

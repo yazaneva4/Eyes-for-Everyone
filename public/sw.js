@@ -1,6 +1,6 @@
 // Service worker: lets the app open without internet (Light, Qibla, Color, time and date work offline)
 // and receives pictures shared from other apps ("Share → Eyes for Everyone").
-const CACHE = 'eyes-v2';
+const CACHE = 'eyes-v3';
 const SHELL = [
   '/',
   '/css/app.css',

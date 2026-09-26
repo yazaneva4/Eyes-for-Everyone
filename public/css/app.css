@@ -30,7 +30,7 @@
   --g3: #7c8cff;
   --g4: #3ee0c0;
   --level: 0;
-  --text-size: 40pt;
+  --text-size: 24pt;
   --gap: 16px;
   --font: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', 'Noto Sans Arabic', 'Noto Sans Malayalam', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color-scheme: dark;
@@ -341,9 +341,9 @@ body.recording .edge {
   gap: 0.3em;
   padding: 0.14em 0.6em 0.18em 0.45em;
   border-radius: 999px;
-  font-size: clamp(32pt, 9vw, 46pt);
+  font-size: clamp(18pt, 5.5vw, 26pt);
   line-height: 1.1;
-  letter-spacing: 0;
+  letter-spacing: 0.02em;
   text-align: center;
   white-space: nowrap;
   transition:
@@ -547,8 +547,8 @@ body:not([data-running='qibla']) .compass .needle {
   stroke-width: 1.8;
 }
 .wordmark {
-  font-size: clamp(32pt, 10vw, 54pt);
-  line-height: 1.02;
+  font-size: clamp(24pt, 7vw, 40pt);
+  line-height: 1.05;
   letter-spacing: -0.01em;
   max-width: 11ch;
   text-shadow: 0 2px 24px var(--bg);
@@ -596,7 +596,7 @@ body:not([data-running='qibla']) .compass .needle {
   border-bottom-right-radius: 22px;
 }
 .shutter {
-  width: min(30vmin, 128px);
+  width: min(26vmin, 110px);
   aspect-ratio: 1;
   border-radius: 50%;
   border: 6px solid var(--fg);
@@ -623,7 +623,7 @@ body:not([data-running='qibla']) .compass .needle {
 .voice,
 .think {
   position: relative;
-  width: min(48vmin, 230px);
+  width: min(42vmin, 200px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -796,10 +796,10 @@ body.recording .sheet {
   align-items: center;
   justify-content: center;
   gap: 0.4em;
-  min-height: 88px;
+  min-height: 72px;
   padding: 12px 28px;
   border-radius: 999px;
-  font-size: 32pt;
+  font-size: 20pt;
   line-height: 1.1;
   text-align: center;
   cursor: pointer;
@@ -951,7 +951,7 @@ body.sr[data-state='thinking'] #sr-main {
   align-items: center;
   gap: 0.35em;
   margin: 0 6px 4px;
-  font-size: 32pt;
+  font-size: 22pt;
   line-height: 1.1;
 }
 .rows {
@@ -962,15 +962,15 @@ body.sr[data-state='thinking'] #sr-main {
   display: flex;
   align-items: center;
   gap: 0.5em;
-  min-height: 84px;
+  min-height: 68px;
   padding: 8px 22px;
-  border-radius: 26px;
+  border-radius: 22px;
   border: 0;
   background: color-mix(in srgb, var(--fg) 8%, transparent);
   box-shadow:
     inset 0 1px 0.5px rgb(255 255 255 / 0.28),
     inset 0 0 0 0.5px color-mix(in srgb, var(--fg) 25%, transparent);
-  font-size: 32pt;
+  font-size: 20pt;
   line-height: 1.1;
   text-align: start;
   cursor: pointer;
@@ -1126,7 +1126,7 @@ body.dropping #drop {
   gap: 16px;
   padding: 40px 56px;
   border-radius: 40px;
-  font-size: 40pt;
+  font-size: 26pt;
   text-align: center;
   outline: 5px dashed var(--fg);
   outline-offset: -18px;

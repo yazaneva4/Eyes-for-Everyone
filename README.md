@@ -7,8 +7,9 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 | --- | --- |
 | **Tap** (READY) | Takes a photo (shutter sound + buzz). Too dark or blurry? It tells you and waits. |
 | **Tap** (LISTENING) | Stops recording and asks the AI. |
-| **Tap** (ANSWER) | Ask another question about the **same** photo. |
-| **Double-tap** | New photo. |
+| **Tap** (ANSWER) | Take the **next photo** straight away (same mode). |
+| **Double-tap** (ANSWER) | Ask another question about the **same** photo. |
+| **Double-tap** (while listening / thinking) | Cancel and go back to the camera. |
 | **Press and hold** | Repeat the last answer. |
 | **Hold 3 seconds** | Settings (language, speed, text size, theme, screen reader mode). |
 | **Swipe left / right** | Change mode: **Ask**, **Read**, **Money**, **Light**, **Qibla**. |
@@ -174,7 +175,7 @@ It is built to feel like a modern camera app, not a remote control:
 
 ## Low-vision design
 
-- Text is 32–64 pt and never scrolls. Long answers shrink to fit, then show one sentence at a time in step with the voice.
+- Text is 24 pt by default and can be set from 18 to 64 pt; it never scrolls. Long answers shrink to fit, then show one sentence at a time in step with the voice.
 - There are three themes, all well above 7:1 contrast: yellow on black (default), white on black, and black on white. The "liquid glass" panels are at least 85% opaque, so the camera behind them can't lower the contrast.
 - The screen stays awake, and portrait and landscape both work.
 - Live regions announce every state to screen readers. **Screen reader mode** swaps gestures for a few huge buttons.

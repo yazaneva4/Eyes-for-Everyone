@@ -3,14 +3,14 @@ import { detectLang } from './i18n.js';
 
 const KEY = 'eyes.settings.v1';
 export const RATES = [0.6, 0.8, 1, 1.25, 1.5, 1.75, 2];
-export const SIZES = [32, 40, 48, 56, 64];
+export const SIZES = [18, 20, 24, 28, 32, 40, 48, 56, 64];
 export const THEMES = ['yellow', 'white', 'light'];
 
 const defaults = () => ({
   lang: detectLang(),
   rate: 1,
   volume: 0.8,
-  textPt: 40,
+  textPt: 24,
   theme: 'yellow',
   srMode: false,
   disclaimerShown: false,
@@ -25,6 +25,14 @@ function load() {
 }
 
 export const settings = load();
+// Text became smaller by default; move people from the old 40pt default once.
+if (!settings.sizeV2) {
+  if (settings.textPt === 40) settings.textPt = 24;
+  settings.sizeV2 = true;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(settings));
+  } catch {}
+}
 
 export function save() {
   try {
