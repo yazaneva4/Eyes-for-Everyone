@@ -1,6 +1,6 @@
 // Speaks text out loud.
 //   'always'   → ElevenLabs is set up: use it for everything, phone voice only as a backup.
-//   'fallback' → use the server voice only when the phone has none for the language (common for Malayalam).
+//   'fallback' → (unused now) server voice only when the phone has none for the language.
 // Screen reader mode stays silent because the screen reader reads the live region instead.
 import { settings } from './settings.js';
 import { LOCALES } from './i18n.js';

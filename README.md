@@ -24,10 +24,10 @@ Eyes-for-Everyone/
 ├── api/                      ← the small robots that live on the server
 │   ├── ask.js                ← takes your photo and question and asks the AI what it sees.
 │   ├── transcribe.js         ← listens to your recorded voice and writes down the words.
-│   ├── speak.js              ← turns words into a natural voice with ElevenLabs (or GPT as a backup).
+│   ├── speak.js              ← turns words into a natural voice with ElevenLabs.
 │   ├── health.js             ← tells the app which AI helpers are switched on.
 │   └── _lib/
-│       ├── ai.js             ← knows how to talk to Gemini, GPT and ElevenLabs, and holds the AI's rules.
+│       ├── ai.js             ← knows how to talk to Gemini, OpenRouter and ElevenLabs, and holds the AI's rules.
 │       └── http.js           ← the door guard that only lets our own app in.
 ├── public/                   ← everything your phone downloads
 │   ├── index.html            ← the skeleton of the one big screen.
@@ -62,12 +62,12 @@ Eyes-for-Everyone/
 2. **Add your AI key(s):** copy `.env.example` to a new file named `.env` and paste your key(s):
    ```
    GEMINI_API_KEY=your-gemini-key
-   OPENAI_API_KEY=your-openai-key
+   OPENROUTER_API_KEY=your-openrouter-key
    ELEVENLABS_API_KEY=your-elevenlabs-key
    ```
-   - **Gemini or GPT** (at least one) answers questions about the photo.
+   - **Gemini or OpenRouter** (at least one) answers questions about the photo. OpenRouter uses the free `openrouter/free` router by default.
    - **ElevenLabs** (recommended) gives the app one natural voice in English, Arabic *and* Malayalam, and the best speech-to-text (Scribe).
-     Without it, the phone's own voice is used, with GPT's voice as the backup for languages the phone can't speak.
+     Without it, the phone's own voice is used and Gemini does the speech-to-text.
    With no keys at all, the app still runs in *demo mode* with a pretend answer.
 3. **Start it:**
    ```bash
@@ -83,7 +83,7 @@ Phones only allow the camera and microphone on **https** pages. The easy way is 
 
 ### A. Vercel (recommended)
 1. Go to <https://vercel.com/yazaneva4-3470s-projects/eyes-for-everyone> → **Settings → Git** and connect the GitHub repo `yazaneva4/Eyes-for-Everyone` (if it is not already connected).
-2. **Settings → Environment Variables**: add `GEMINI_API_KEY` and/or `OPENAI_API_KEY`, plus `ELEVENLABS_API_KEY` (Production + Preview). Then redeploy.
+2. **Settings → Environment Variables**: add `GEMINI_API_KEY` and/or `OPENROUTER_API_KEY`, plus `ELEVENLABS_API_KEY` (Production + Preview). Then redeploy.
 3. Framework preset: **Other**. Leave build command empty. (`vercel.json` already sets the output folder to `public`.)
 4. Every `git push` deploys automatically. Open the `…vercel.app` link on your phone.
 5. Optional: in Safari or Chrome, choose **Add to Home Screen** so it opens full-screen like an app.
@@ -147,12 +147,11 @@ It is built to feel like a modern camera app, not a remote control:
 
 | Name | Default | Meaning |
 | --- | --- | --- |
-| `AI_PROVIDER` | `gemini` | Which AI answers first. The other one is the automatic fallback. |
+| `AI_PROVIDER` | `gemini` | Which AI answers first (`gemini` or `openrouter`). The other one is the automatic fallback. |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Gemini model for answers. |
 | `GEMINI_FALLBACK_MODEL` | `gemini-flash-lite-latest` | Tried when the main Gemini model is out of quota. |
-| `OPENAI_MODEL` | `gpt-4.1-mini` | GPT model for answers. |
-| `OPENAI_TRANSCRIBE_MODEL` | `gpt-4o-mini-transcribe` | Speech-to-text model. |
-| `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Backup voice if ElevenLabs is missing or fails. |
+| `OPENROUTER_MODEL` | `openrouter/free` | Any vision model ID from openrouter.ai/models. |
+| `OPENROUTER_FALLBACK_MODEL` | `google/gemma-4-31b-it:free` | Tried by OpenRouter if the first model fails. |
 | `ELEVENLABS_VOICE_ID` | `JBFqnCBsd6RMkjVDRZzb` | Any voice ID from your ElevenLabs voice library. |
 | `ELEVENLABS_TTS_MODEL` | `eleven_flash_v2_5` for English and Arabic, `eleven_v3` for Malayalam | Flash is fastest but has no Malayalam. Override one language with `ELEVENLABS_TTS_MODEL_ML` (or `_EN`, `_AR`). |
-| `ELEVENLABS_STT_MODEL` | `scribe_v2` | ElevenLabs speech-to-text, tried first before GPT and Gemini. |
+| `ELEVENLABS_STT_MODEL` | `scribe_v2` | ElevenLabs speech-to-text, tried first, with Gemini as the backup. |

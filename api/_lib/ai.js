@@ -1,4 +1,4 @@
-// Talks to Gemini and OpenAI. API keys are read from environment variables only
+// Talks to Gemini, OpenRouter and ElevenLabs. API keys are read from environment variables only
 // and never leave the server. Nothing is logged or stored.
 
 export const LANGS = {
@@ -17,7 +17,7 @@ const clean = (v) => String(v || '').trim().replace(/^["']|["']$/g, '').trim();
 function keys() {
   return {
     gemini: clean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY),
-    openai: clean(process.env.OPENAI_API_KEY),
+    openrouter: clean(process.env.OPENROUTER_API_KEY),
     elevenlabs: clean(process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY || process.env.XI_API_KEY),
   };
 }
@@ -41,11 +41,10 @@ export async function checkKeys() {
     }
   };
   const gm = process.env.GEMINI_MODEL || 'gemini-flash-latest';
-  const om = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
   const out = await Promise.all([
     probe('gemini', `https://generativelanguage.googleapis.com/v1beta/models/${gm}`, { 'x-goog-api-key': k.gemini }),
-    probe('openai', `https://api.openai.com/v1/models/${om}`, { authorization: `Bearer ${k.openai}` }),
+    probe('openrouter', 'https://openrouter.ai/api/v1/key', { authorization: `Bearer ${k.openrouter}` }),
     probe('elevenlabs', `https://api.elevenlabs.io/v1/voices/${voice}`, { 'xi-api-key': k.elevenlabs }),
   ]);
   return Object.fromEntries(out);
@@ -56,13 +55,13 @@ export function available() {
   const mock = process.env.MOCK_AI === '1';
   return {
     gemini: !!k.gemini,
-    openai: !!k.openai,
-    ask: mock || !!(k.gemini || k.openai),
+    openrouter: !!k.openrouter,
+    ask: mock || !!(k.gemini || k.openrouter),
     elevenlabs: !!k.elevenlabs,
-    transcribe: !!(k.elevenlabs || k.gemini || k.openai),
-    speak: !!(k.elevenlabs || k.openai),
-    // ElevenLabs sounds good enough to be the app's only voice; OpenAI is used only as a backup.
-    voice: k.elevenlabs ? 'elevenlabs' : k.openai ? 'openai' : null,
+    transcribe: !!(k.elevenlabs || k.gemini),
+    speak: !!k.elevenlabs,
+    // ElevenLabs is the app's voice; without it the phone's own voice is used.
+    voice: k.elevenlabs ? 'elevenlabs' : null,
     mock,
   };
 }
@@ -71,7 +70,7 @@ export function available() {
 function order(preferred) {
   const k = keys();
   const pref = preferred || process.env.AI_PROVIDER || 'gemini';
-  const list = pref === 'openai' ? ['openai', 'gemini'] : ['gemini', 'openai'];
+  const list = pref === 'openrouter' ? ['openrouter', 'gemini'] : ['gemini', 'openrouter'];
   return list.filter((p) => k[p]);
 }
 
@@ -158,33 +157,42 @@ async function geminiOnce(model, parts, system, maxTokens, allowEmpty) {
   return text;
 }
 
-async function openaiChat(messages) {
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+// OpenRouter: one key, many models. If the first model fails, OpenRouter itself tries the next one.
+async function openrouterChat(messages) {
+  const models = [
+    // openrouter/free picks a free model that can see images; gemma-4 is a free backup.
+    process.env.OPENROUTER_MODEL || 'openrouter/free',
+    process.env.OPENROUTER_FALLBACK_MODEL || 'google/gemma-4-31b-it:free',
+  ].filter((m, i, all) => m && all.indexOf(m) === i);
+  const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${keys().openai}` },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
-      messages,
-      max_completion_tokens: 1200,
-    }),
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${keys().openrouter}`,
+      'HTTP-Referer': process.env.SITE_URL || 'https://eyesforeveryone.vercel.app',
+      'X-Title': 'Eyes for Everyone',
+    },
+    // Free models are sometimes "thinking" models, so leave room for that before the answer.
+    body: JSON.stringify({ models, messages, max_tokens: 4000, temperature: 0.2 }),
     signal: AbortSignal.timeout(25000),
   });
-  if (!r.ok) throw new Error(`OpenAI ${r.status}: ${await readError(r)}`);
+  if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${await readError(r)}`);
   const j = await r.json();
+  if (j.error) throw new Error(`OpenRouter: ${j.error.message || 'error'}`);
   return (j.choices?.[0]?.message?.content || '').trim();
 }
 
 const askers = {
   gemini: ({ image, mime, text, system }) =>
     geminiGenerate([{ inlineData: { mimeType: mime, data: image } }, { text }], system),
-  openai: ({ image, mime, text, system }) =>
-    openaiChat([
+  openrouter: ({ image, mime, text, system }) =>
+    openrouterChat([
       { role: 'system', content: system },
       {
         role: 'user',
         content: [
           { type: 'text', text },
-          { type: 'image_url', image_url: { url: `data:${mime};base64,${image}`, detail: 'high' } },
+          { type: 'image_url', image_url: { url: `data:${mime};base64,${image}` } },
         ],
       },
     ]),
@@ -195,7 +203,7 @@ export async function askAI({ image, mime, question, lang, history, provider }) 
     await new Promise((r) => setTimeout(r, 1200));
     return {
       answer:
-        'Demo mode. No AI key is set. I see a photo. Add a Gemini or OpenAI key to get real answers.',
+        'Demo mode. No AI key is set. I see a photo. Add a Gemini or OpenRouter key to get real answers.',
       provider: 'mock',
     };
   }
@@ -219,22 +227,6 @@ export async function askAI({ image, mime, question, lang, history, provider }) 
 // ---------- speech to text ----------
 
 const EXT = { 'audio/webm': 'webm', 'audio/mp4': 'mp4', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/mpeg': 'mp3', 'audio/aac': 'aac' };
-
-async function openaiTranscribe(buf, mime, lang) {
-  const form = new FormData();
-  form.append('file', new Blob([buf], { type: mime }), `question.${EXT[mime] || 'webm'}`);
-  form.append('model', process.env.OPENAI_TRANSCRIBE_MODEL || 'gpt-4o-mini-transcribe');
-  form.append('language', lang);
-  const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${keys().openai}` },
-    body: form,
-    signal: AbortSignal.timeout(20000),
-  });
-  if (!r.ok) throw new Error(`OpenAI STT ${r.status}: ${await readError(r)}`);
-  const j = await r.json();
-  return (j.text || '').trim();
-}
 
 async function elevenTranscribe(buf, mime, lang) {
   const form = new FormData();
@@ -277,11 +269,11 @@ const scriptOk = (text, lang) => !text || !SCRIPT[lang] || SCRIPT[lang].test(tex
 export async function transcribe({ audio, mime, lang }) {
   const buf = Buffer.from(audio, 'base64');
   const base = (mime || 'audio/webm').split(';')[0].trim();
-  // ElevenLabs Scribe and OpenAI accept every browser recording format, so they go first.
+  // ElevenLabs Scribe first (best with every browser format), Gemini as the backup.
   const k = keys();
-  const list = [k.elevenlabs && 'elevenlabs', k.openai && 'openai', k.gemini && 'gemini'].filter(Boolean);
+  const list = [k.elevenlabs && 'elevenlabs', k.gemini && 'gemini'].filter(Boolean);
   if (!list.length) throw Object.assign(new Error('No speech-to-text key configured'), { status: 503 });
-  const fns = { elevenlabs: elevenTranscribe, openai: openaiTranscribe, gemini: geminiTranscribe };
+  const fns = { elevenlabs: elevenTranscribe, gemini: geminiTranscribe };
   let lastErr;
   let fallback = null;
   for (const p of list) {
@@ -321,34 +313,8 @@ async function elevenSpeech(text, lang) {
   return Buffer.from(await r.arrayBuffer());
 }
 
-async function openaiSpeech(text, lang) {
-  const r = await fetch('https://api.openai.com/v1/audio/speech', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${keys().openai}` },
-    body: JSON.stringify({
-      model: process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts',
-      voice: process.env.OPENAI_TTS_VOICE || 'alloy',
-      input: text,
-      instructions: `Speak clearly, warmly and calmly in ${LANGS[lang].name}.`,
-      response_format: 'mp3',
-    }),
-    signal: AbortSignal.timeout(20000),
-  });
-  if (!r.ok) throw new Error(`OpenAI TTS ${r.status}: ${await readError(r)}`);
-  return Buffer.from(await r.arrayBuffer());
-}
-
 export async function speech({ text, lang }) {
   const k = keys();
-  const list = [k.elevenlabs && elevenSpeech, k.openai && openaiSpeech].filter(Boolean);
-  if (!list.length) throw Object.assign(new Error('No text-to-speech key configured'), { status: 503 });
-  let lastErr;
-  for (const fn of list) {
-    try {
-      return await fn(text, lang);
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw lastErr;
+  if (!k.elevenlabs) throw Object.assign(new Error('No text-to-speech key configured'), { status: 503 });
+  return elevenSpeech(text, lang);
 }

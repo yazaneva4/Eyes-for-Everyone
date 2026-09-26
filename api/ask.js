@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       question: q,
       lang: langOf(lang),
       history: hist,
-      provider: provider === 'openai' || provider === 'gemini' ? provider : undefined,
+      provider: provider === 'openrouter' || provider === 'gemini' ? provider : undefined,
     });
     res.status(200).json({ ...out, ms: Date.now() - started });
   } catch (e) {

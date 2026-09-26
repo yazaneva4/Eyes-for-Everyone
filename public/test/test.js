@@ -269,7 +269,7 @@ fetch('/api/health')
   .then((r) => r.json())
   .then((h) => {
     if (!h.gemini) $('provider').querySelector('[value="gemini"]').disabled = true;
-    if (!h.openai) $('provider').querySelector('[value="openai"]').disabled = true;
+    if (!h.openrouter) $('provider').querySelector('[value="openrouter"]').disabled = true;
   })
   .catch(() => {});
 render();

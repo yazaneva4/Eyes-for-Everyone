@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     speak: a.speak,
     voice: a.voice,
     gemini: a.gemini,
-    openai: a.openai,
+    openrouter: a.openrouter,
     elevenlabs: a.elevenlabs,
     mock: a.mock,
     // /api/health?check=1 also tests each key with a free call
