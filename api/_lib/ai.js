@@ -42,8 +42,23 @@ export async function checkKeys() {
   };
   const gm = geminiModels()[0];
   const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
+  // Gemini: one real 5-token request, because a key can be valid but out of quota.
+  const geminiReal = async () => {
+    if (!k.gemini) return ['gemini', { status: 0, hint: 'no key set' }];
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': k.gemini },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Say ok' }] }], generationConfig: { maxOutputTokens: 5 } }),
+        signal: AbortSignal.timeout(10000),
+      });
+      return ['gemini', { status: r.status, hint: hint(r.status), model: gm }];
+    } catch {
+      return ['gemini', { status: -1, hint: 'could not reach provider' }];
+    }
+  };
   const out = await Promise.all([
-    probe('gemini', `https://generativelanguage.googleapis.com/v1beta/models/${gm}`, { 'x-goog-api-key': k.gemini }),
+    geminiReal(),
     probe('openrouter', 'https://openrouter.ai/api/v1/key', { authorization: `Bearer ${k.openrouter}` }),
     probe('elevenlabs', `https://api.elevenlabs.io/v1/voices/${voice}`, { 'xi-api-key': k.elevenlabs }),
   ]);
@@ -171,13 +186,18 @@ async function geminiOnce(model, parts, system, { maxTokens = 300, allowEmpty = 
   return text;
 }
 
-// OpenRouter, free models only. Anything not marked free is ignored, so it can never cost money.
-const isFree = (m) => m === 'openrouter/free' || /:free$/.test(m);
+// OpenRouter, free models only: any id not ending in ":free" is ignored, so it can never cost money.
+// A fixed list of free models that can see images and write normal answers. Not the random
+// "openrouter/free" router: it sometimes picks safety classifiers that reply "User Safety: safe".
+const FREE_VISION = ['google/gemma-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free', 'qwen/qwen3.8-27b:free'];
+const usable = (m) => /:free$/.test(m) && !/safety|guard|moderat/i.test(m);
 const openrouterModels = () =>
-  [process.env.OPENROUTER_MODEL, process.env.OPENROUTER_FALLBACK_MODEL, 'openrouter/free', 'google/gemma-4-31b-it:free']
-    .filter((m) => m && isFree(m))
+  [process.env.OPENROUTER_MODEL, process.env.OPENROUTER_FALLBACK_MODEL, ...FREE_VISION]
+    .filter((m) => m && usable(m))
     .filter((m, i, all) => all.indexOf(m) === i)
     .slice(0, 3);
+// Replies that are clearly not an answer (classifier output, empty filler).
+const junk = (t) => /^\s*(user|assistant)?\s*safety\s*:|^\s*(safe|unsafe)\s*$/i.test(t);
 
 async function openrouterChat(messages, maxTokens) {
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -196,7 +216,9 @@ async function openrouterChat(messages, maxTokens) {
   const j = await r.json();
   if (j.error) throw new Error(`OpenRouter: ${j.error.message || 'error'}`);
   lastUsage = { model: j.model, in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0 };
-  return (j.choices?.[0]?.message?.content || '').trim();
+  const text = (j.choices?.[0]?.message?.content || '').trim();
+  if (junk(text)) throw new Error(`OpenRouter ${j.model} returned a non-answer`);
+  return text;
 }
 
 const askers = {
@@ -205,7 +227,7 @@ const askers = {
       detail: reading ? 'high' : 'medium',
       maxTokens: reading ? 800 : 300,
     }),
-  // Free models are sometimes "thinking" models, so leave them room before the answer.
+  // Some free models "think" first, so leave them room before the answer.
   openrouter: ({ image, mime, text, system }) =>
     openrouterChat([
       { role: 'system', content: system },
@@ -216,7 +238,7 @@ const askers = {
           { type: 'image_url', image_url: { url: `data:${mime};base64,${image}` } },
         ],
       },
-    ], 4000),
+    ], 1500),
 };
 
 export async function askAI({ image, mime, question, lang, history, provider }) {
