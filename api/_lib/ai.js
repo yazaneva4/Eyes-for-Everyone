@@ -245,25 +245,33 @@ const openrouterModels = () =>
 const junk = (t) => /^\s*(user|assistant)?\s*safety\s*:|^\s*(safe|unsafe)\s*$/i.test(t);
 
 async function openrouterChat(messages, maxTokens) {
-  const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${keys().openrouter}`,
-      'HTTP-Referer': process.env.SITE_URL || 'https://eyesforeveryone.vercel.app',
-      'X-Title': 'Eyes for Everyone',
-    },
-    // If the first model fails, OpenRouter itself tries the next one in the list.
-    body: JSON.stringify({ models: openrouterModels(), messages, max_tokens: maxTokens, temperature: 0.2 }),
-    signal: AbortSignal.timeout(25000),
-  });
-  if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${await readError(r)}`);
-  const j = await r.json();
-  if (j.error) throw new Error(`OpenRouter: ${j.error.message || 'error'}`);
-  lastUsage = { model: j.model, in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0 };
-  const text = (j.choices?.[0]?.message?.content || '').trim();
-  if (junk(text)) throw new Error(`OpenRouter ${j.model} returned a non-answer`);
-  return text;
+  // Try each free model by name; a busy one (429) or one that errors just moves us to the next.
+  let lastErr;
+  for (const model of openrouterModels()) {
+    try {
+      const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${keys().openrouter}`,
+          'HTTP-Referer': process.env.SITE_URL || 'https://eyesforeveryone.vercel.app',
+          'X-Title': 'Eyes for Everyone',
+        },
+        body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.2 }),
+        signal: AbortSignal.timeout(25000),
+      });
+      if (!r.ok) throw new Error(`OpenRouter ${model} ${r.status}: ${await readError(r)}`);
+      const j = await r.json();
+      if (j.error) throw new Error(`OpenRouter ${model}: ${j.error.message || 'error'}`);
+      lastUsage = { model: j.model || model, in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0 };
+      const text = (j.choices?.[0]?.message?.content || '').trim();
+      if (!text || junk(text)) throw new Error(`OpenRouter ${model} returned a non-answer`);
+      return text;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('No free OpenRouter model configured');
 }
 
 const askers = {
