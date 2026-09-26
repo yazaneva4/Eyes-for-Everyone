@@ -106,7 +106,9 @@ async function runOne(item) {
       file: item.name,
       question: item.question,
       lang: lang(),
-      ai: j.provider || provider() || 'auto',
+      ai: j.tokens?.model ? `${j.provider} · ${j.tokens.model}` : j.provider || provider() || 'auto',
+      tokensIn: j.tokens?.in ?? '',
+      tokensOut: j.tokens?.out ?? '',
       reply: j.answer,
       ms: Math.round(performance.now() - started),
       at: new Date().toISOString(),
@@ -169,7 +171,8 @@ function render() {
     meta.className = 'meta';
     if (res?.reply) {
       reply.textContent = res.reply;
-      meta.textContent = `${res.ai} · ${(res.ms / 1000).toFixed(1)} s${res.question !== it.question ? ' · asked: ' + res.question : ''}`;
+      const tok = res.tokensIn !== undefined && res.tokensIn !== '' ? ` · ${res.tokensIn} in / ${res.tokensOut} out tokens` : '';
+      meta.textContent = `${res.ai} · ${(res.ms / 1000).toFixed(1)} s${tok}${res.question !== it.question ? ' · asked: ' + res.question : ''}`;
     }
     if (res?.error) {
       const err = document.createElement('div');
@@ -233,7 +236,7 @@ function summarise() {
 // ---------- export ----------
 
 function exportCsv() {
-  const cols = ['file', 'question', 'lang', 'ai', 'reply', 'rating', 'ms', 'at'];
+  const cols = ['file', 'question', 'lang', 'ai', 'reply', 'rating', 'ms', 'tokensIn', 'tokensOut', 'at'];
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [cols.join(',')].concat(
     Object.values(results)

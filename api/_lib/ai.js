@@ -40,7 +40,7 @@ export async function checkKeys() {
       return [name, { status: -1, hint: 'could not reach provider' }];
     }
   };
-  const gm = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const gm = geminiModels()[0];
   const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
   const out = await Promise.all([
     probe('gemini', `https://generativelanguage.googleapis.com/v1beta/models/${gm}`, { 'x-goog-api-key': k.gemini }),
@@ -91,9 +91,10 @@ Rules:
 }
 
 function userText(question, history) {
+  // Only the last two turns, trimmed: every word here is billed on every follow-up.
   const past = (history || [])
-    .slice(-3)
-    .map((h) => `Earlier question: ${h.q}\nYour earlier answer: ${h.a}`)
+    .slice(-2)
+    .map((h) => `Earlier question: ${h.q.slice(0, 200)}\nYour earlier answer: ${h.a.slice(0, 300)}`)
     .join('\n\n');
   return past ? `${past}\n\nNew question about the same photo: ${question}` : question;
 }
@@ -108,19 +109,24 @@ async function readError(r) {
   }
 }
 
-// Each Gemini model has its own quota, so when one is used up the next one is tried.
+// Cheapest Gemini model that can see images: gemini-2.5-flash-lite ($0.10 in / $0.40 out per 1M tokens).
+// A second Gemini model is only used if you set GEMINI_FALLBACK_MODEL; otherwise the free OpenRouter models are the backup.
 const geminiModels = () =>
-  [process.env.GEMINI_MODEL || 'gemini-flash-latest', process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-lite-latest'].filter(
-    (m, i, all) => m && all.indexOf(m) === i
-  );
+  [process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite', process.env.GEMINI_FALLBACK_MODEL].filter((m, i, all) => m && all.indexOf(m) === i);
 
-async function geminiGenerate(parts, system, maxTokens = 8192, allowEmpty = false) {
+// Questions that need the fine print get full image detail; everything else uses medium (~4× fewer image tokens).
+const READ_WORDS = /\b(read|text|say|says|written|label|sign|print|ingredients|expiry|expire|date|price|number|medicine|dose)\b|اقرأ|اقرا|مكتوب|النص|ملصق|السعر|التاريخ|دواء|വായിക്ക|എഴുതി|ലേബൽ|വില|തീയതി|മരുന്ന്/i;
+export const wantsReading = (q) => READ_WORDS.test(String(q));
+
+let lastUsage = null; // token counts of the most recent Gemini call (for the /test page)
+
+async function geminiGenerate(parts, system, opts = {}) {
   let lastErr;
   for (const model of geminiModels()) {
     // Google is sometimes briefly overloaded (5xx); try the same model once more.
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        return await geminiOnce(model, parts, system, maxTokens, allowEmpty);
+        return await geminiOnce(model, parts, system, opts);
       } catch (e) {
         lastErr = e;
         if (e.status === 429 || e.status === 404) break; // quota used up or model missing: next model
@@ -132,22 +138,30 @@ async function geminiGenerate(parts, system, maxTokens = 8192, allowEmpty = fals
   throw lastErr;
 }
 
-async function geminiOnce(model, parts, system, maxTokens, allowEmpty) {
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': keys().gemini },
-      body: JSON.stringify({
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        contents: [{ role: 'user', parts }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens },
-      }),
-      signal: AbortSignal.timeout(25000),
-    }
-  );
+async function geminiOnce(model, parts, system, { maxTokens = 300, allowEmpty = false, detail = 'medium' } = {}, plain = false) {
+  const config = { temperature: 0.2, maxOutputTokens: maxTokens };
+  if (!plain) {
+    // Fewer image tokens unless we need to read small print.
+    config.mediaResolution = detail === 'high' ? 'MEDIA_RESOLUTION_HIGH' : 'MEDIA_RESOLUTION_MEDIUM';
+    // "Thinking" tokens are billed as output; 2.5 models can switch it off.
+    if (model.includes('2.5')) config.thinkingConfig = { thinkingBudget: 0 };
+  }
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': keys().gemini },
+    body: JSON.stringify({
+      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      contents: [{ role: 'user', parts }],
+      generationConfig: config,
+    }),
+    signal: AbortSignal.timeout(25000),
+  });
+  // If a model rejects one of the saving options, ask again without them rather than failing.
+  if (r.status === 400 && !plain) return geminiOnce(model, parts, system, { maxTokens, allowEmpty, detail }, true);
   if (!r.ok) throw Object.assign(new Error(`Gemini ${model} ${r.status}: ${await readError(r)}`), { retry: r.status >= 500, status: r.status });
   const j = await r.json();
+  const u = j.usageMetadata || {};
+  lastUsage = { model, in: u.promptTokenCount || 0, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) };
   const text = (j.candidates?.[0]?.content?.parts || [])
     .filter((p) => !p.thought)
     .map((p) => p.text || '')
@@ -157,13 +171,15 @@ async function geminiOnce(model, parts, system, maxTokens, allowEmpty) {
   return text;
 }
 
-// OpenRouter: one key, many models. If the first model fails, OpenRouter itself tries the next one.
-async function openrouterChat(messages) {
-  const models = [
-    // openrouter/free picks a free model that can see images; gemma-4 is a free backup.
-    process.env.OPENROUTER_MODEL || 'openrouter/free',
-    process.env.OPENROUTER_FALLBACK_MODEL || 'google/gemma-4-31b-it:free',
-  ].filter((m, i, all) => m && all.indexOf(m) === i);
+// OpenRouter, free models only. Anything not marked free is ignored, so it can never cost money.
+const isFree = (m) => m === 'openrouter/free' || /:free$/.test(m);
+const openrouterModels = () =>
+  [process.env.OPENROUTER_MODEL, process.env.OPENROUTER_FALLBACK_MODEL, 'openrouter/free', 'google/gemma-4-31b-it:free']
+    .filter((m) => m && isFree(m))
+    .filter((m, i, all) => all.indexOf(m) === i)
+    .slice(0, 3);
+
+async function openrouterChat(messages, maxTokens) {
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -172,19 +188,24 @@ async function openrouterChat(messages) {
       'HTTP-Referer': process.env.SITE_URL || 'https://eyesforeveryone.vercel.app',
       'X-Title': 'Eyes for Everyone',
     },
-    // Free models are sometimes "thinking" models, so leave room for that before the answer.
-    body: JSON.stringify({ models, messages, max_tokens: 4000, temperature: 0.2 }),
+    // If the first model fails, OpenRouter itself tries the next one in the list.
+    body: JSON.stringify({ models: openrouterModels(), messages, max_tokens: maxTokens, temperature: 0.2 }),
     signal: AbortSignal.timeout(25000),
   });
   if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${await readError(r)}`);
   const j = await r.json();
   if (j.error) throw new Error(`OpenRouter: ${j.error.message || 'error'}`);
+  lastUsage = { model: j.model, in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0 };
   return (j.choices?.[0]?.message?.content || '').trim();
 }
 
 const askers = {
-  gemini: ({ image, mime, text, system }) =>
-    geminiGenerate([{ inlineData: { mimeType: mime, data: image } }, { text }], system),
+  gemini: ({ image, mime, text, system, reading }) =>
+    geminiGenerate([{ inlineData: { mimeType: mime, data: image } }, { text }], system, {
+      detail: reading ? 'high' : 'medium',
+      maxTokens: reading ? 800 : 300,
+    }),
+  // Free models are sometimes "thinking" models, so leave them room before the answer.
   openrouter: ({ image, mime, text, system }) =>
     openrouterChat([
       { role: 'system', content: system },
@@ -195,7 +216,7 @@ const askers = {
           { type: 'image_url', image_url: { url: `data:${mime};base64,${image}` } },
         ],
       },
-    ]),
+    ], 4000),
 };
 
 export async function askAI({ image, mime, question, lang, history, provider }) {
@@ -209,13 +230,15 @@ export async function askAI({ image, mime, question, lang, history, provider }) 
   }
   const system = systemPrompt(lang);
   const text = userText(question, history);
+  const reading = wantsReading(question);
   const providers = order(provider);
   if (!providers.length) throw Object.assign(new Error('No AI key configured'), { status: 503 });
   let lastErr;
   for (const p of providers) {
     try {
-      const answer = await askers[p]({ image, mime, text, system });
-      if (answer) return { answer, provider: p };
+      lastUsage = null;
+      const answer = await askers[p]({ image, mime, text, system, reading });
+      if (answer) return { answer, provider: p, tokens: lastUsage };
       lastErr = new Error(`${p} returned an empty answer`);
     } catch (e) {
       lastErr = e;
@@ -255,8 +278,7 @@ async function geminiTranscribe(buf, mime, lang) {
       },
     ],
     null,
-    8192,
-    true // silence is a valid, empty transcript
+    { maxTokens: 300, allowEmpty: true } // silence is a valid, empty transcript
   );
   const out = text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
   return /^\[?\s*no speech\s*\]?\.?$/i.test(out) ? '' : out;

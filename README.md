@@ -135,6 +135,14 @@ It is built to feel like a modern camera app, not a remote control:
 - **Adaptive Liquid Glass:** `glass.js` measures the picture behind every glass panel, several times a second over the live camera. It then picks the clearest glass (down to 42% opacity) that still keeps text at 7.5:1 contrast. Over dark scenes the glass is very clear, and over a bright window it frosts up.
 - The glass has a bright lens rim, a shine that follows your finger (and the phone's tilt on Android), a springy "gel" squish when you press it, and real light-bending refraction in Chrome.
 
+## Keeping costs low
+
+- Gemini uses `gemini-2.5-flash-lite`, the cheapest Gemini model that can see images, with "thinking" turned off.
+- Photos are sent at medium detail (about 256 image tokens). Full detail is used only when the question asks to read something, like a label, sign, price, date or medicine box.
+- Answers are capped at 300 output tokens (800 when reading text). Follow-ups send only the last two questions.
+- If Gemini is out of quota, the app uses OpenRouter's free models, which cost nothing.
+- The `/test` page shows the real input and output tokens for every answer, and they are included in the CSV export.
+
 ## Low-vision design
 
 - Text is 32–64 pt and never scrolls. Long answers shrink to fit, then show one sentence at a time in step with the voice.
@@ -148,9 +156,9 @@ It is built to feel like a modern camera app, not a remote control:
 | Name | Default | Meaning |
 | --- | --- | --- |
 | `AI_PROVIDER` | `gemini` | Which AI answers first (`gemini` or `openrouter`). The other one is the automatic fallback. |
-| `GEMINI_MODEL` | `gemini-flash-latest` | Gemini model for answers. |
-| `GEMINI_FALLBACK_MODEL` | `gemini-flash-lite-latest` | Tried when the main Gemini model is out of quota. |
-| `OPENROUTER_MODEL` | `openrouter/free` | Any vision model ID from openrouter.ai/models. |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | The cheapest Gemini that can see images ($0.10 in / $0.40 out per 1M tokens). |
+| `GEMINI_FALLBACK_MODEL` | *(none)* | Optional second Gemini model. By default the free OpenRouter models are the backup instead. |
+| `OPENROUTER_MODEL` | `openrouter/free` | **Only free models are used.** Any ID that does not end in `:free` is ignored. |
 | `OPENROUTER_FALLBACK_MODEL` | `google/gemma-4-31b-it:free` | Tried by OpenRouter if the first model fails. |
 | `ELEVENLABS_VOICE_ID` | `JBFqnCBsd6RMkjVDRZzb` | Any voice ID from your ElevenLabs voice library. |
 | `ELEVENLABS_TTS_MODEL` | `eleven_flash_v2_5` for English and Arabic, `eleven_v3` for Malayalam | Flash is fastest but has no Malayalam. Override one language with `ELEVENLABS_TTS_MODEL_ML` (or `_EN`, `_AR`). |
