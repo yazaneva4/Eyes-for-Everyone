@@ -149,6 +149,7 @@ It is built to feel like a modern camera app, not a remote control:
 | --- | --- | --- |
 | `AI_PROVIDER` | `gemini` | Which AI answers first. The other one is the automatic fallback. |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Gemini model for answers. |
+| `GEMINI_FALLBACK_MODEL` | `gemini-flash-lite-latest` | Tried when the main Gemini model is out of quota. |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | GPT model for answers. |
 | `OPENAI_TRANSCRIBE_MODEL` | `gpt-4o-mini-transcribe` | Speech-to-text model. |
 | `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Backup voice if ElevenLabs is missing or fails. |
