@@ -3,17 +3,35 @@
 let stream = null;
 const demo = new URLSearchParams(location.search).has('demo');
 
+const within = (ms, p, name) =>
+  Promise.race([p, new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error(name), { name })), ms))]);
+
+/**
+ * Turns the camera on. Never waits forever. Errors keep the browser's reason in `name`:
+ * NotAllowedError (blocked), NotReadableError (another app uses it), NotFoundError (no camera),
+ * NoAnswer (the permission question was not answered), NotSupported (no camera access in this browser).
+ */
 export async function startCamera(video) {
   if (demo) return;
   if (stream) return;
-  stream = await navigator.mediaDevices.getUserMedia({
+  if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('NotSupported'), { name: 'NotSupported' });
+  const asking = navigator.mediaDevices.getUserMedia({
     video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
     audio: false,
   });
+  let s;
+  try {
+    s = await within(20000, asking, 'NoAnswer');
+  } catch (e) {
+    // If the camera turns up after we gave up, switch it straight off again.
+    if (e.name === 'NoAnswer') asking.then((late) => late.getTracks().forEach((t) => t.stop())).catch(() => {});
+    throw e;
+  }
+  stream = s;
   video.srcObject = stream;
-  await video.play().catch(() => {});
-  // Wait until the first frame is ready so the first tap never captures black.
-  if (video.readyState < 2) await new Promise((r) => video.addEventListener('loadeddata', r, { once: true }));
+  await within(4000, video.play(), 'NoFrames').catch(() => {});
+  // Wait (briefly) for the first frame so the first tap never captures black.
+  if (video.readyState < 2) await within(4000, new Promise((r) => video.addEventListener('loadeddata', r, { once: true })), 'NoFrames').catch(() => {});
 }
 
 export function stopCamera(video) {

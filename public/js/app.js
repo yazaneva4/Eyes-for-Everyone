@@ -37,6 +37,7 @@ const el = {
   btnHelp: $('btn-help'),
   btnSettings: $('btn-settings'),
   btnGallery: $('btn-gallery'),
+  btnUpload: $('btn-upload'),
   btnSide: $('btn-side'),
   sideIcon: $('side-icon'),
   modebar: $('modebar'),
@@ -194,7 +195,9 @@ function updateLabels() {
   $('drop-text').textContent = t('dropHere');
   el.btnHelp.setAttribute('aria-label', t('sr.help'));
   el.btnSettings.setAttribute('aria-label', t('sr.settings'));
-  el.btnGallery.setAttribute('aria-label', t('sr.open'));
+  el.btnGallery.setAttribute('aria-label', t('upload'));
+  $('gallery-text').textContent = t('upload');
+  $('upload-text').textContent = t('upload');
   for (const b of el.modebar.children) b.textContent = t(`modes.${b.dataset.mode}.name`);
 
   // The button on the right changes with the moment: repeat, ask about it, or cancel.
@@ -414,6 +417,7 @@ function bindGestures() {
     if (state === 'ready') return onLongPress();
   });
   el.btnGallery.addEventListener('click', openPicker);
+  el.btnUpload.addEventListener('click', openPicker);
   el.btnSettings.addEventListener('click', openSettings);
   el.btnHelp.addEventListener('click', () => {
     if (state === 'start') {
@@ -505,6 +509,31 @@ function bindGestures() {
     else if (e.key === 'ArrowRight') onSwipe(document.documentElement.dir === 'rtl' ? -1 : 1);
     else if (e.key === 'ArrowLeft') onSwipe(document.documentElement.dir === 'rtl' ? 1 : -1);
   });
+}
+
+// ---------- camera problems: say exactly what is wrong, and offer Upload ----------
+
+function cameraProblem(e) {
+  const key =
+    { NotAllowedError: 'camBlocked', SecurityError: 'camBlocked', NotReadableError: 'camBusy', AbortError: 'camBusy', NotFoundError: 'camNone', OverconstrainedError: 'camNone', NoAnswer: 'camNoAnswer', NotSupported: 'camUnsupported' }[e?.name] ||
+    'camBlocked';
+  el.body.dataset.nocam = 'yes';
+  el.body.dataset.camera = 'off';
+  sounds.error();
+  return key;
+}
+
+async function cameraOn(my) {
+  try {
+    await startCamera(el.video);
+    el.body.dataset.camera = 'on';
+    delete el.body.dataset.nocam;
+    return true;
+  } catch (e) {
+    if (my !== op) return false;
+    await say(t(cameraProblem(e)));
+    return false;
+  }
 }
 
 // ---------- actions ----------
@@ -625,15 +654,17 @@ async function goReady(prefix) {
   }
   if (!settings.disclaimerShown) await showDisclaimer();
   if (my !== op) return;
+  // Camera and the spoken prompt start together; a camera problem is spoken after the prompt.
+  let problem = null;
   const cam = startCamera(el.video)
-    .then(() => (el.body.dataset.camera = 'on'))
-    .catch(async () => {
-      if (my !== op) return;
-      sounds.error();
-      await say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
-    });
+    .then(() => {
+      el.body.dataset.camera = 'on';
+      delete el.body.dataset.nocam;
+    })
+    .catch((e) => (problem = cameraProblem(e)));
   await say(prefix ? `${prefix} ${readyPrompt()}` : readyPrompt());
   await cam;
+  if (problem && my === op) await say(t(problem));
 }
 
 // After an answer: back to the camera and snap the next photo in one tap.
@@ -645,16 +676,11 @@ async function retake() {
   el.photo.removeAttribute('src');
   setState('ready');
   show(t('newPhoto'));
-  try {
-    await startCamera(el.video);
-    el.body.dataset.camera = 'on';
-  } catch {
-    if (my !== op) return;
-    sounds.error();
-    return say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
-  }
-  // Give the camera a moment to set its exposure and focus.
-  await new Promise((r) => setTimeout(r, 700));
+  talk(t('newPhoto'));
+  // The camera stayed on while you listened, so the next photo is instant.
+  const warm = cameraRunning();
+  if (!(await cameraOn(my))) return;
+  if (!warm) await new Promise((r) => setTimeout(r, 600)); // let a cold camera set exposure and focus
   if (my === op && state === 'ready') takePhoto();
 }
 
@@ -662,21 +688,14 @@ async function takePhoto() {
   const my = ++op;
   stopSpeaking();
   if (!cameraRunning()) {
-    try {
-      await startCamera(el.video);
-      el.body.dataset.camera = 'on';
-      await new Promise((r) => setTimeout(r, 500));
-    } catch {
-      sounds.error();
-      return say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
-    }
+    if (!(await cameraOn(my))) return;
+    await new Promise((r) => setTimeout(r, 500));
   }
   let canvas;
   try {
     canvas = capture(el.video);
-  } catch {
-    sounds.error();
-    return say(t(DESKTOP ? 'noCameraDesktop' : 'noCamera'));
+  } catch (e) {
+    return say(t(cameraProblem(e)));
   }
   sounds.shutter();
   flash();
@@ -738,8 +757,6 @@ function usePhoto(canvas, my) {
   photo = { base64: toJpegBase64(canvas), url: canvas.toDataURL('image/jpeg', 0.7) };
   history = [];
   el.photo.src = photo.url;
-  stopCamera(el.video);
-  el.body.dataset.camera = 'off';
   ask('', my);
 }
 
@@ -749,6 +766,7 @@ async function ask(question, my) {
   const q = question.trim() || t('defaultQuestion');
   setState('thinking');
   show(t('thinking'));
+  talk(t('thinking'));
   sounds.thinkingStart();
   abort = abort || new AbortController();
   const ctl = abort;

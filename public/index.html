@@ -88,7 +88,7 @@
           <span class="needle"><svg class="ic"><use href="#i-arrow" /></svg></span>
         </div>
         <!-- A liquid-metal orb: it breathes with your voice while listening and swirls while thinking -->
-        <div class="orb3d"><span class="sheen"></span><span class="glint"></span></div>
+        <div class="orb3d"><span class="flow"></span><span class="sheen"></span><span class="glint"></span><span class="ripple"></span><span class="ripple r2"></span><span class="ripple r3"></span></div>
       </div>
 
       <div class="sheet glass">
@@ -97,12 +97,15 @@
       </div>
     </div>
 
+    <!-- When there is no camera: one big, obvious way to describe a picture instead -->
+    <button id="btn-upload" class="upload-btn glass" type="button"><svg class="ic" aria-hidden="true"><use href="#i-image" /></svg><span id="upload-text">Upload photo</span></button>
+
     <!-- The whole screen is one big button: tap anywhere to take a photo -->
     <button id="stage" type="button" aria-label="Tap anywhere to start"></button>
 
     <!-- Bottom bar: gallery · Describe | Qibla · one button that changes with the moment (repeat / ask) -->
     <nav class="dock" aria-label="Controls">
-      <button id="btn-gallery" class="icon-btn glass" type="button" aria-label="Open picture"><svg class="ic" aria-hidden="true"><use href="#i-image" /></svg></button>
+      <button id="btn-gallery" class="icon-btn glass" type="button" aria-label="Upload photo"><svg class="ic" aria-hidden="true"><use href="#i-image" /></svg><span class="btn-text" id="gallery-text">Upload</span></button>
       <div class="modebar glass" id="modebar" role="tablist">
         <button type="button" role="tab" data-mode="describe">Describe</button>
         <button type="button" role="tab" data-mode="qibla">Qibla</button>
