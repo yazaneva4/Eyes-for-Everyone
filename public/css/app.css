@@ -509,8 +509,12 @@ body[data-state='thinking'] .orb3d {
   opacity: 0;
   transition: opacity 0.4s;
 }
-body:is([data-running='qibla'], [data-running='qibla-map']) .compass .qibla-mark {
+body[data-running='qibla'] .compass .qibla-mark {
   opacity: 1;
+}
+/* No compass on this device: do not draw one (it could not point the right way) */
+body[data-running='qibla-none'] .compass {
+  display: none;
 }
 body[data-facing='yes'] .compass .rose {
   box-shadow:

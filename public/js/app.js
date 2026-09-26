@@ -265,6 +265,7 @@ function rawTap() {
     return onDoubleTap();
   }
   if (now - lastAction < TIMING.DEBOUNCE) return; // accidental extra tap
+  if (state === 'ready' && mode === 'qibla') return; // nothing to tap in Qibla
   vibrate(20);
   // Only an answer has a double-tap, so everywhere else act at once for a snappy shutter.
   if (state !== 'answer') {
@@ -535,7 +536,7 @@ function onTap() {
     case 'start':
       return begin();
     case 'ready':
-      if (mode === 'qibla') return sayQibla();
+      if (mode === 'qibla') return; // Qibla runs by itself: taps do nothing
       return takePhoto();
     case 'listening':
       return prompting ? stopSpeaking() : finishListening();
@@ -583,7 +584,7 @@ function sayHelp() {
 
 async function onLongPress() {
   if (!['ready', 'answer'].includes(state)) return;
-  if (mode === 'qibla' && state === 'ready') return sayQibla();
+  if (mode === 'qibla' && state === 'ready') return;
   const my = ++op;
   vibrate([30, 50, 30]);
   if (!lastAnswer) return say(t('nothingToRepeat'), { display: state === 'answer' });
@@ -992,12 +993,6 @@ function stopQibla() {
   delete el.body.dataset.facing;
 }
 
-// Tap in Qibla: say where to turn right now.
-function sayQibla() {
-  stopSpeaking();
-  talk(qiblaSay || t('qiblaLocating'));
-}
-
 async function runQibla(my) {
   let lastTick = 0;
   let lastSpoke = Date.now() + 6000; // let the introduction finish first
@@ -1065,10 +1060,10 @@ async function runQibla(my) {
   el.body.style.setProperty('--target', `${q.target.toFixed(1)}deg`);
   facts = { km: num(q.distanceKm), deg: num(q.target), dir: t(`compass.${compassPoint(q.target)}`) };
   if (!q.compass) {
-    // Laptop or a phone without a compass: the real direction, map style (north up).
+    // Laptop or a phone without a compass: it cannot know which way you face,
+    // so no compass is drawn — only the facts, and where to use it instead.
     qibla = null;
-    el.body.dataset.running = 'qibla-map';
-    el.body.style.setProperty('--heading', '0deg');
+    el.body.dataset.running = 'qibla-none';
     qiblaSay = t('qiblaNoCompass', facts);
     return say(qiblaSay);
   }

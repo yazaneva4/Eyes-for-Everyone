@@ -6,20 +6,19 @@ Tap to take a photo, ask a question out loud, tap again, and hear the answer.
 The app does two things:
 
 - **Describe:** tap anywhere to take a photo. The description **streams in and is read aloud while it is still being written**. Tap again for the next photo. Double-tap (or the mic button) to ask a question about the same photo: just speak, and the app **notices when you stop talking** and answers, like Siri. There is no stop button.
-- **Qibla:** choose Qibla at the bottom (or swipe). It **starts by itself**: a live, talking compass with the distance and direction to the Kaaba. Tap anywhere to hear the direction again.
+- **Qibla:** choose Qibla at the bottom (or swipe). It **starts by itself**: a live, talking compass with the distance and direction to the Kaaba. There is nothing to tap.
 
 | Gesture | What happens |
 | --- | --- |
 | **Tap** (Describe) | Take a photo and hear what is in it. After an answer, tap again for the next photo. |
 | **Double-tap** (after an answer) | Ask a question about the same photo. |
-| **Tap** (Qibla) | Hear the current direction again. |
 | **Press and hold** | Repeat the last answer. |
 | **Hold 3 seconds** | Settings (or tap ⚙). |
 | **Swipe left / right** | Switch between Describe and Qibla. |
 | **Swipe down** | Open a picture from the gallery. |
 | **Drag the answer sheet** | Expand it for long answers, or shrink it to one line. |
 
-**Laptop / PC:** press **Space** to take a photo. The other keys are **A** ask about it, **R** repeat, **← / →** Describe or Qibla, **O** open a picture, **↑ / ↓** resize the answer, **S** settings and **H** help. You can also **drop or paste a picture** (for example a screenshot). On a laptop with no compass, Qibla gives the bearing from north, the direction and the distance.
+**Laptop / PC:** press **Space** to take a photo. The other keys are **A** ask about it, **R** repeat, **← / →** Describe or Qibla, **O** open a picture, **↑ / ↓** resize the answer, **S** settings and **H** help. You can also **drop or paste a picture** (for example a screenshot). A laptop has no compass, so Qibla does not draw one there: it says to use a phone, and gives the bearing from north and the distance.
 
 --- | --- |
 | **Tap** (READY) | Takes a photo (shutter sound + buzz). Too dark or blurry? It tells you and waits. |
